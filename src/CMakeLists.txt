@@ -73,8 +73,8 @@ include_directories(${CMAKE_SOURCE_DIR} ${PLATFORM_SOURCE_DIR})
 set(CMAKE_CXX_STANDARD 17)
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
 
-find_package(Boost REQUIRED)
-include_directories(${Boost_INCLUDE_DIRS})
+#find_package(Boost REQUIRED)
+#include_directories(${Boost_INCLUDE_DIRS})
 
 # Build a list of all the graphblas headers.
 file(GLOB GRAPHBLAS_HEADERS graphblas/*.hpp)
@@ -83,23 +83,23 @@ file(GLOB GRAPHBLAS_HEADERS graphblas/*.hpp)
 # with settings and config files. Note the library dependency is not in here.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-### Make basic tests
-file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${CMAKE_SOURCE_DIR}/test/*.cpp )
-foreach( testsourcefile ${TEST_SOURCES} )
-    get_filename_component(justname ${testsourcefile} NAME)
-    string( REPLACE ".cpp" "" testname ${justname} )
-    message("Adding: ${testname}")
-    add_executable( ${testname} ${testsourcefile} ${GRAPHBLAS_HEADERS})
-endforeach( testsourcefile ${TEST_SOURCES} )
-
-### Make extra PLATFORM-specific tests
-file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${PLATFORM_SOURCE_DIR}/test/*.cpp )
-foreach( testsourcefile ${TEST_SOURCES} )
-    get_filename_component(justname ${testsourcefile} NAME)
-    string( REPLACE ".cpp" "" testname ${justname} )
-    message("Adding: ${testname}_${PLATFORM} ")
-    add_executable( ${testname}_${PLATFORM} ${testsourcefile} ${GRAPHBLAS_HEADERS})
-endforeach( testsourcefile ${TEST_SOURCES} )
+#### Make basic tests
+#file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${CMAKE_SOURCE_DIR}/test/*.cpp )
+#foreach( testsourcefile ${TEST_SOURCES} )
+#    get_filename_component(justname ${testsourcefile} NAME)
+#    string( REPLACE ".cpp" "" testname ${justname} )
+#    message("Adding: ${testname}")
+#    add_executable( ${testname} ${testsourcefile} ${GRAPHBLAS_HEADERS})
+#endforeach( testsourcefile ${TEST_SOURCES} )
+#
+#### Make extra PLATFORM-specific tests
+#file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${PLATFORM_SOURCE_DIR}/test/*.cpp )
+#foreach( testsourcefile ${TEST_SOURCES} )
+#    get_filename_component(justname ${testsourcefile} NAME)
+#    string( REPLACE ".cpp" "" testname ${justname} )
+#    message("Adding: ${testname}_${PLATFORM} ")
+#    add_executable( ${testname}_${PLATFORM} ${testsourcefile} ${GRAPHBLAS_HEADERS})
+#endforeach( testsourcefile ${TEST_SOURCES} )
 
 ## Make demos
 file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${CMAKE_SOURCE_DIR}/demo/*.cpp )
