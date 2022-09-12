@@ -53,6 +53,11 @@ if (NOT PLATFORM)
     set(PLATFORM sequential)
 endif()
 
+if (NOT LOGGING_LEVEL)
+    set(LOGGING_LEVEL 0)
+endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGRAPHBLAS_LOGGING_LEVEL=${LOGGING_LEVEL}")
+
 message("Configuring platform: ${PLATFORM}")
 
 if (EXISTS ${CMAKE_SOURCE_DIR}/graphblas/platforms/${PLATFORM})
