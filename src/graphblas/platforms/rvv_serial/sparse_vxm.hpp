@@ -68,24 +68,42 @@ namespace grb
 
             if ((A.nvals() > 0) && (u.nvals() > 0))
             {
+                IndexType nvals = 0;
                 for (IndexType row_idx = 0; row_idx < u.size(); ++row_idx)
                 {
-                    if (u.hasElementNoCheck(row_idx) && !A[row_idx].empty())
-                    {
-                        axpy(t, op, u.extractElementNoCheck(row_idx), A[row_idx]);
-                    }
+                    auto start_col_it = A.getRowCols(row_idx, nvals);
+                    //A.getRowVals(row_idx, start_val_it, end_val_it);
+
+                    std::cout << "row " << row_idx << ":" << std::endl;
+                    std::cout << "\tcols: ";
+                    for (auto it = start_col_it; it < start_col_it + nvals; ++it)
+                        std::cout << *it << " ";
+                    std::cout << std::endl;
+
+                    //std::cout << "\tvals: ";
+                    //for (auto it = start_val_it; it < end_val_it; ++it)
+                    //    std::cout << *it << " ";
+                    //std::cout << std::endl;
+
+                    //if (u.hasElementNoCheck(row_idx) && !A[row_idx].empty())
+                    //{
+                    //    axpy(t, op, u.extractElementNoCheck(row_idx), A[row_idx]);
+                    //}
                 }
             }
 
-            // =================================================================
-            // Accumulate into final output, w, considering mask and replace/merge
-            using ZScalarType = typename std::conditional_t<
-                std::is_same_v<AccumT, NoAccumulate>,
-                TScalarType,
-                decltype(accum(std::declval<typename WVectorT::ScalarType>(),
-                               std::declval<TScalarType>()))>;
+            //// =================================================================
+            //// Accumulate into final output, w, considering mask and replace/merge
+            //using ZScalarType = typename std::conditional_t<
+            //    std::is_same_v<AccumT, NoAccumulate>,
+            //    TScalarType,
+            //    decltype(accum(std::declval<typename WVectorT::ScalarType>(),
+            //                   std::declval<TScalarType>()))>;
 
-            opt_accum_with_opt_mask_1D(w, mask, accum, t, outp);
+            //opt_accum_with_opt_mask_1D(w, mask, accum, t, outp);
+
+            throw grb::NotImplementedException(
+                  "CsrSparseMatrix::CsrSparseMatrix() (sparse from dense) INTERNAL ERROR");
         }
 
         //**********************************************************************

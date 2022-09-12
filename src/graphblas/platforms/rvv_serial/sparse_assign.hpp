@@ -651,8 +651,6 @@ namespace grb
             std::vector<std::tuple<IndexType, UScalarType> > t;
             vectorExpand(t, u, oi_pairs);
 
-            GRB_LOG_VERBOSE("t: " << t);
-
             // =================================================================
             // Accumulate into z
             using ZScalarType = typename std::conditional_t<
@@ -665,8 +663,6 @@ namespace grb
             ewise_or_stencil_opt_accum_1D(z, w, t,
                                           setupIndices(indices, u.size()),
                                           accum);
-
-            GRB_LOG_VERBOSE("z: " << z);
 
             // =================================================================
             // Copy z into the final output considering mask and replace/merge
@@ -864,8 +860,6 @@ namespace grb
             for (auto it = seq.begin(); it != seq.end(); ++it)
                 t.emplace_back(*it, val);
 
-            GRB_LOG_VERBOSE("t: " << t);
-
             // =================================================================
             // Accumulate into Z
             using ZScalarType = typename std::conditional_t<
@@ -878,8 +872,6 @@ namespace grb
             ewise_or_stencil_opt_accum_1D(z, w, t,
                                           setupIndices(indices, w.size()),
                                           accum);
-
-            GRB_LOG_VERBOSE("z: " << z);
 
             // =================================================================
             // Copy Z into the final output, w, considering mask and replace/merge

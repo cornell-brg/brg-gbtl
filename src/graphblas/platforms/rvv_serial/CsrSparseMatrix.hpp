@@ -50,7 +50,9 @@ namespace grb
             using ElementType = std::tuple<IndexType, ScalarT>;
             using RowType = std::vector<ElementType>;
 
-            using ScalarArrayType = std::vector<ScalarType>;
+            using ScalarArrayType     = std::vector<ScalarType>;
+            using ScalarArrayIterator = typename std::vector<ScalarType>::iterator;
+            using IndexArrayIterator  = typename std::vector<IndexType>::iterator;
 
             // Constructor
             CsrSparseMatrix(IndexType num_rows,
@@ -226,11 +228,38 @@ namespace grb
             // Set value at index
             void setElement(IndexType irow, IndexType icol, ScalarT const &val)
             {
-                //m_data[irow].reserve(m_data[irow].capacity() + 10);
                 if (irow >= m_num_rows || icol >= m_num_cols)
                 {
                     throw IndexOutOfBoundsException("setElement: index out of bounds");
                 }
+
+                // FIXME @Tuan: check if the matrix has not been built yet!
+                //IndexType col_start = m_row_ptr_arr[irow];
+                //IndexType col_end   = (irow < m_num_rows - 1) ?
+                //                          m_row_ptr_arr[irow + 1] : m_nvals;
+
+                //auto i = col_start;
+                //for (; i < col_end; ++i) {
+                //    printf("%d %d", i, m_col_idx_arr[i]);
+                //    if (icol == m_col_idx_arr[i]) {
+                //        // found an existing element, just update it
+                //        m_val_arr[i] = val;
+                //        return;
+                //    } else if (icol < m_col_idx_arr[i]) {
+                //        // found a place to insert the new element
+                //        break;
+                //    }
+                //}
+                //printf("\n");
+
+                //// insert the value right before the i-th element
+                //m_col_idx_arr.insert(m_col_idx_arr.begin() + i, icol);
+                //m_val_arr.insert(m_val_arr.begin() + i, val);
+                //m_nvals++;
+
+                //// shift row_ptr after irow by 1
+                //for (i = irow + 1; i < m_num_rows; ++i)
+                //    m_row_ptr_arr[i]++;
 
                 /** TODO */
                 throw grb::NotImplementedException(
@@ -297,10 +326,37 @@ namespace grb
                 return m_dummy_row;
             }
 
-            // RowType const &getRow(IndexType row_index) const
-            // {
-            //     return m_data[row_index];
-            // }
+            const std::vector<IndexType>::const_iterator
+            getRowCols(IndexType row_index, IndexType& ncols) const
+            {
+                if (row_index >= m_num_rows)
+                {
+                    throw IndexOutOfBoundsException(
+                            "getRowCols: index out of bounds");
+                }
+
+                auto start_idx = m_row_ptr_arr[row_index];
+                auto end_idx   = (row_index < m_num_rows - 1) ?
+                                      m_row_ptr_arr[row_index + 1] : m_nvals;
+                ncols = end_idx - start_idx;
+                return m_col_idx_arr.begin() + start_idx;
+            }
+
+            //void getRowVals(IndexType row_index,
+            //                ScalarArrayIterator& start_it,
+            //                ScalarArrayIterator& end_it) const
+            //{
+            //    if (row_index >= m_num_rows)
+            //    {
+            //        throw IndexOutOfBoundsException(
+            //                "getRowCols: index out of bounds");
+            //    }
+
+            //    start_it = m_val_arr.begin() + m_row_ptr_arr[row_index];
+            //    //end_it   = (row_index < m_num_rows - 1) ?
+            //    //                m_val_arr.begin() + m_row_ptr_arr[row_index + 1] :
+            //    //                m_val_arr.end();
+            //}
 
             // Allow casting
             template <typename OtherScalarT>

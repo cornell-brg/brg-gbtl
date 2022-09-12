@@ -79,8 +79,6 @@ namespace grb
                 }
             }
 
-            GRB_LOG_VERBOSE("t: " << t_contents);
-
             // =================================================================
             // Accumulate into Z
             using ZScalarType = std::conditional_t<
@@ -91,8 +89,6 @@ namespace grb
 
             std::vector<std::tuple<IndexType,ZScalarType> > z_contents;
             ewise_or_opt_accum_1D(z_contents, w, t_contents, accum);
-
-            GRB_LOG_VERBOSE("z: " << z_contents);
 
             // =================================================================
             // Copy Z into the final output considering mask and replace/merge
@@ -247,8 +243,6 @@ namespace grb
                 }
             }
 
-            GRB_LOG_VERBOSE("t: " << t_contents);
-
             // =================================================================
             // Accumulate into Z
             using ZScalarType = std::conditional_t<
@@ -259,8 +253,6 @@ namespace grb
 
             std::vector<std::tuple<IndexType,ZScalarType> > z_contents;
             ewise_or_opt_accum_1D(z_contents, w, t_contents, accum);
-
-            GRB_LOG_VERBOSE("z: " << z_contents);
 
             // =================================================================
             // Copy Z into the final output considering mask and replace/merge
@@ -307,8 +299,6 @@ namespace grb
                 }
             }
 
-            GRB_LOG_VERBOSE("t: " << t_contents);
-
             // =================================================================
             // Accumulate into Z
             using ZScalarType = std::conditional_t<
@@ -320,8 +310,6 @@ namespace grb
 
             std::vector<std::tuple<IndexType,ZScalarType> > z_contents;
             ewise_or_opt_accum_1D(z_contents, w, t_contents, accum);
-
-            GRB_LOG_VERBOSE("z: " << z_contents);
 
             // =================================================================
             // Copy Z into the final output considering mask and replace/merge
@@ -610,8 +598,6 @@ namespace grb
                 }
             }
 
-            GRB_LOG_VERBOSE("t: " << t_contents);
-
             // =================================================================
             // Accumulate into Z
             using ZScalarType = std::conditional_t<
@@ -622,8 +608,6 @@ namespace grb
 
             std::vector<std::tuple<IndexType,ZScalarType> > z_contents;
             ewise_or_opt_accum_1D(z_contents, w, t_contents, accum);
-
-            GRB_LOG_VERBOSE("z: " << z_contents);
 
             // =================================================================
             // Copy Z into the final output considering mask and replace/merge

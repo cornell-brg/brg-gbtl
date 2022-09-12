@@ -507,8 +507,6 @@ namespace grb
                                     std::min(A.nrows(), w.size()));
             extractColumn(t, A, seq.begin(), seq.end(), col_index);
 
-            GRB_LOG_VERBOSE("t: " << t);
-
             // =================================================================
             // Accumulate into Z
             using ZScalarType = typename std::conditional_t<
@@ -519,8 +517,6 @@ namespace grb
 
             std::vector<std::tuple<IndexType, ZScalarType> > z;
             ewise_or_opt_accum_1D(z, w, t, accum);
-
-            GRB_LOG_VERBOSE("z: " << z);
 
             // =================================================================
             // Copy Z into the final output considering mask and replace/merge
