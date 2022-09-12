@@ -1665,6 +1665,45 @@ namespace grb
             GRB_LOG_FN_END("axpy");
         }
 
+        template<typename CScalarT,
+                 typename SemiringT,
+                 typename AScalarT,
+                 typename BScalarT>
+        void axpy(
+            BitmapSparseVector<CScalarT> &t,
+            SemiringT                     semiring,
+            AScalarT                      a,
+            const IndexType              *col_idx_arr,
+            const BScalarT               *val_arr,
+            const IndexType               row_nvals)
+        {
+            GRB_LOG_FN_BEGIN("axpy(dense t)");
+            //auto t_it = t.begin();
+
+            for (IndexType i = 0; i < row_nvals; ++i)
+            {
+                auto j   = col_idx_arr[i];
+                auto b_j = val_arr[i];
+
+                GRB_LOG_VERBOSE("j = " << j);
+
+                auto t_j(semiring.mult(a, b_j));
+                GRB_LOG_VERBOSE("temp = " << t_j);
+
+                if (t.hasElementNoCheck(j))
+                {
+                    t.setElementNoCheck(j, semiring.add(t.extractElementNoCheck(j),
+                                                        t_j));
+                }
+                else
+                {
+                    t.setElementNoCheck(j, t_j);
+                }
+            }
+
+            GRB_LOG_FN_END("axpy");
+        }
+
         // *******************************************************************
         /// perform the following operation on sparse vectors implemented as
         /// vector<tuple<Index, value>>

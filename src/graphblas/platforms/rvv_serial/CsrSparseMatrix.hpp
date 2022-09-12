@@ -156,19 +156,33 @@ namespace grb
                 m_col_idx_arr.assign(j_it, j_it + n);
                 m_val_arr.assign(v_it, v_it + n);
 
-                m_row_ptr_arr.resize(m_num_rows);
+                m_row_ptr_arr.resize(m_num_rows + 1);
                 IndexType cur_row_ptr = 0;
                 for (IndexType r = 0; r < m_num_rows; ++r) {
                     m_row_ptr_arr[r] = cur_row_ptr;
 
                     // skip all values in the same row
+                    // sanity check: column indices must be increasing
+                    IndexType col_idx;
+                    uint64_t count = 0;
+
                     while ((cur_row_ptr < n) && (*(i_it + cur_row_ptr) == r)) {
+                        if (count > 0) {
+                            if (m_col_idx_arr[cur_row_ptr] <= col_idx) {
+                                throw grb::InvalidIndexException(
+                                      "CsrSparseMatrix::build() INTERNAL ERROR");
+                            }
+                        }
+
+                        col_idx = m_col_idx_arr[cur_row_ptr];
+                        count++;
                         cur_row_ptr++;
                     }
                 }
 
                 // set number of non-zeros
                 m_nvals = m_val_arr.size();
+                m_row_ptr_arr[m_num_rows] = m_nvals;
             }
 
             void clear()
@@ -297,6 +311,9 @@ namespace grb
 
             void recomputeNvals()
             {
+                /** TODO */
+                throw grb::NotImplementedException(
+                      "CsrSparseMatrix::recomputeNvals() INTERNAL ERROR");
             }
 
             // TODO: add error checking on dimensions?
@@ -326,37 +343,35 @@ namespace grb
                 return m_dummy_row;
             }
 
-            const std::vector<IndexType>::const_iterator
-            getRowCols(IndexType row_index, IndexType& ncols) const
+            IndexType getNvals(IndexType row_idx) const
             {
-                if (row_index >= m_num_rows)
+                if (row_idx >= m_num_rows)
                 {
-                    throw IndexOutOfBoundsException(
-                            "getRowCols: index out of bounds");
+                    throw IndexOutOfBoundsException("getNvals: index out of bounds");
                 }
 
-                auto start_idx = m_row_ptr_arr[row_index];
-                auto end_idx   = (row_index < m_num_rows - 1) ?
-                                      m_row_ptr_arr[row_index + 1] : m_nvals;
-                ncols = end_idx - start_idx;
-                return m_col_idx_arr.begin() + start_idx;
+                return m_row_ptr_arr[row_idx + 1] - m_row_ptr_arr[row_idx];
             }
 
-            //void getRowVals(IndexType row_index,
-            //                ScalarArrayIterator& start_it,
-            //                ScalarArrayIterator& end_it) const
-            //{
-            //    if (row_index >= m_num_rows)
-            //    {
-            //        throw IndexOutOfBoundsException(
-            //                "getRowCols: index out of bounds");
-            //    }
+            const IndexType* getColIdxArr(IndexType row_idx) const
+            {
+                if (row_idx >= m_num_rows)
+                {
+                    throw IndexOutOfBoundsException("getNvals: index out of bounds");
+                }
 
-            //    start_it = m_val_arr.begin() + m_row_ptr_arr[row_index];
-            //    //end_it   = (row_index < m_num_rows - 1) ?
-            //    //                m_val_arr.begin() + m_row_ptr_arr[row_index + 1] :
-            //    //                m_val_arr.end();
-            //}
+                return m_col_idx_arr.data() + m_row_ptr_arr[row_idx];
+            }
+
+            const ScalarType* getValArr(IndexType row_idx) const
+            {
+                if (row_idx >= m_num_rows)
+                {
+                    throw IndexOutOfBoundsException("getNvals: index out of bounds");
+                }
+
+                return m_val_arr.data() + m_row_ptr_arr[row_idx];
+            }
 
             // Allow casting
             template <typename OtherScalarT>
@@ -483,9 +498,7 @@ namespace grb
                         os << ((row_idx == 0) ? "  [[" : "   [");
 
                         IndexType min_col_idx = m_row_ptr_arr[row_idx];
-                        IndexType max_col_idx = (row_idx == m_num_rows - 1) ?
-                                                    m_col_idx_arr.size() :
-                                                    m_row_ptr_arr[row_idx + 1];
+                        IndexType max_col_idx = m_row_ptr_arr[row_idx + 1];
 
                         for (IndexType col_idx = 0; col_idx < m_num_cols; ++col_idx) {
                             if (min_col_idx < max_col_idx &&
