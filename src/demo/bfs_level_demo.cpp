@@ -112,34 +112,48 @@ int main()
     std::vector<unsigned int> weights(i.size(), 1);
 
     G_karate.build(i.begin(), j.begin(), weights.begin(), i.size());
+    std::cout << "Graph: " << std::endl;
+    grb::print_matrix(std::cout, G_karate);
 
-    // Trying the row vector approach
-    grb::Matrix<unsigned int>  root(1, num_nodes);
-    // pick an arbitrary root:
-    root.setElement(0, 30, 1);
+    //std::cout << "\n\nRunning bfs_level (using mxv) ..." << std::endl;
+    //grb::Vector<grb::IndexType> levels(num_nodes);
+    //algorithms::bfs_level(G_karate, grb::IndexType(0), levels);
+    //std::cout << "levels:" << std::endl;
+    //grb::print_vector(std::cout, levels);
 
-    grb::Matrix<unsigned int> levels1(1, num_nodes);
-    grb::Matrix<unsigned int> levels(1, num_nodes);
+    std::cout << "\n\nRunning bfs_level_masked_v2 ..." << std::endl;
+    grb::Vector<grb::IndexType> levels1(num_nodes);
+    grb::Vector<unsigned int> root(num_nodes);
+    root.setElement(grb::IndexType(0), 1);
+    algorithms::bfs_level_masked_v2(G_karate, root, levels1);
+    std::cout << "levels:" << std::endl;
+    grb::print_vector(std::cout, levels1);
 
-    algorithms::bfs_level(G_karate, root, levels1);
+//    // Trying the row vector approach
+//    grb::Matrix<unsigned int>  root(1, num_nodes);
+//    // pick an arbitrary root:
+//    root.setElement(0, 0, 1);
+//
+//    grb::Matrix<unsigned int> levels1(1, num_nodes);
+//
+//    algorithms::bfs_level(G_karate, root, levels1);
+//
+//    std::cout << "bfs_level output" << std::endl;
+//    std::cout << "root:" << std::endl;
+//    grb::print_matrix(std::cout, root);
+//    std::cout << "levels (using mxm):" << std::endl;
+//    grb::print_matrix(std::cout, levels1);
 
+//    grb::Matrix<unsigned int> levels(1, num_nodes);
+//    algorithms::batch_bfs_level_masked(G_karate, root, levels);
+//
 //    std::cout << "Graph: " << std::endl;
 //    grb::print_matrix(std::cout, G_karate);
-    std::cout << "bfs_level output" << std::endl;
-    std::cout << "root:" << std::endl;
-    grb::print_matrix(std::cout, root);
-    std::cout << "levels:" << std::endl;
-    grb::print_matrix(std::cout, levels1);
-
-    algorithms::batch_bfs_level_masked(G_karate, root, levels);
-
-//    std::cout << "Graph: " << std::endl;
-//    grb::print_matrix(std::cout, G_karate);
-    std::cout << std::endl;
-    std::cout << "root:" << std::endl;
-    grb::print_matrix(std::cout, root);
-    std::cout << "levels:" << std::endl;
-    grb::print_matrix(std::cout, levels);
+//    std::cout << std::endl;
+//    std::cout << "root:" << std::endl;
+//    grb::print_matrix(std::cout, root);
+//    std::cout << "levels:" << std::endl;
+//    grb::print_matrix(std::cout, levels);
 
     return 0;
 }
