@@ -54,7 +54,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("IndexOutOfBoundsException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
@@ -72,7 +72,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("PanicException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
@@ -94,7 +94,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("InvalidValueException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
@@ -112,7 +112,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("InvalidIndexException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
@@ -133,7 +133,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("DimensionException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
@@ -154,7 +154,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("OutputNotEmptyException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
@@ -172,7 +172,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("NoValueException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
@@ -191,7 +191,7 @@ namespace grb
     private:
         const char* what() const throw()
         {
-            return ("NotImplementedException: " + m_message).c_str();
+            return m_message.c_str();
         }
 
         std::string m_message;
