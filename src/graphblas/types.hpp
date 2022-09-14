@@ -78,6 +78,11 @@ namespace grb
         {
             return mask;
         }
+
+        inline IndexType nvals() const
+        {
+            return 0;
+        }
     };
 
     //**************************************************************************

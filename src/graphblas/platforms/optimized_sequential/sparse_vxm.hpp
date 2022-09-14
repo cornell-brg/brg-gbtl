@@ -60,6 +60,7 @@ namespace grb
                         OutputControlEnum  outp)
         {
             GRB_LOG_VERBOSE("w<M,z> := u +.* A");
+            GRB_PROFILE("w<M,z> := u +.* A -- u.size=" + std::to_string(u.size()) + ", u.nvals=" + std::to_string(u.nvals()) + ", mask.nvals=" + std::to_string(mask.nvals()));
 
             // =================================================================
             // Use axpy approach with the semi-ring.

@@ -65,3 +65,9 @@
     #define GRB_LOG_VERBOSE_OUTP(x)
 
 #endif
+
+#if GRAPHBLAS_PROFILING_LEVEL > 0
+    #define GRB_PROFILE(x) do { std::cout << "GRB_PROFILE --- " << x << std::endl; } while(0)
+#else
+    #define GRB_PROFILE(x)
+#endif

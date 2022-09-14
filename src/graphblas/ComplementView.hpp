@@ -94,6 +94,7 @@ namespace grb
         }
 
         IndexType size()  const { return m_vec.size(); }
+        IndexType nvals() const { return m_vec.nvals(); }
 
         void printInfo(std::ostream &os) const
         {
