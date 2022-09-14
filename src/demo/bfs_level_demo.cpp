@@ -26,6 +26,9 @@
  */
 
 #include <iostream>
+#include <filesystem>
+#include <fstream>
+#include <cassert>
 
 #include <graphblas/graphblas.hpp>
 #include <algorithms/bfs.hpp>
@@ -105,36 +108,110 @@ grb::IndexArrayType j = {
 
 
 //****************************************************************************
-int main()
+using ScalarT = int32_t;
+
+int main(int argc, char* argv[])
 {
+    grb::IndexType       nnodes;
+    grb::IndexType       nedges;
+    grb::IndexType       data_type = 0;
+    grb::IndexArrayType  src_arr;
+    grb::IndexArrayType  dst_arr;
+    std::vector<ScalarT> weights;
+
+    // read mtx from an input file
+    if (argc == 2) {
+        if (std::filesystem::path(argv[1]).extension().string() != std::string(".list")) {
+            std::cerr << "Unsupported file format" << std::endl;
+            return 1;
+        }
+
+        std::cout << "Reading input graph from an input file " << argv[1] << std::endl;
+
+        std::string fname(argv[1]);
+        std::ifstream in;
+        in.open(fname, std::ios::in | std::ios::binary);
+
+        // check open file for write
+        if (!in.is_open()) {
+            std::cerr << "Error in open file " << fname << std::endl;
+            return 1;
+        }
+
+        uint32_t uint_tmp;
+
+        in.read((char*) &uint_tmp, sizeof(uint_tmp));
+        assert(in);
+        nnodes = static_cast<grb::IndexType>(uint_tmp);
+        std::cout << "nnodes = " << nnodes << std::endl;
+
+        in.read((char*) &uint_tmp, sizeof(uint_tmp));
+        assert(in);
+        nedges = static_cast<grb::IndexType>(uint_tmp);
+        std::cout << "nedges = " << nedges << std::endl;
+
+        in.read((char*) &uint_tmp, sizeof(uint_tmp));
+        assert(in);
+        data_type = static_cast<grb::IndexType>(uint_tmp);
+        std::cout << "data_type = " << data_type
+                  << " (0-binary, 1-integer, 2-float)" << std::endl;
+
+        // src arr
+        src_arr.resize(nedges);
+        for (size_t i = 0; i < nedges; ++i) {
+	          in.read((char*) &uint_tmp, sizeof(uint_tmp));
+            assert(in);
+            src_arr[i] = static_cast<grb::IndexType>(uint_tmp);
+        }
+
+        // dst arr
+        dst_arr.resize(nedges);
+        for (size_t i = 0; i < nedges; ++i) {
+	          in.read((char*) &uint_tmp, sizeof(uint_tmp));
+            assert(in);
+            dst_arr[i] = static_cast<grb::IndexType>(uint_tmp);
+        }
+
+        // close
+        in.close();
+    } else {
+        std::cout << "Using the default matrix" << std::endl;
+        nnodes  = num_nodes;
+        src_arr = i;
+        dst_arr = j;
+        nedges  = src_arr.size();
+    }
+
+    // set weights to 1s for this BFS_level since actual weights don't matter here
+    weights.resize(nedges, 1);
+
     // TODO Assignment from Initalizer list.
-    grb::Matrix<unsigned int>  G_karate(num_nodes, num_nodes);
-    std::vector<unsigned int> weights(i.size(), 1);
+    grb::Matrix<ScalarT> G_karate(nnodes, nnodes);
 
-    G_karate.build(i.begin(), j.begin(), weights.begin(), i.size());
+    G_karate.build(src_arr.begin(), dst_arr.begin(), weights.begin(), src_arr.size());
     std::cout << "Graph: " << std::endl;
-    grb::print_matrix(std::cout, G_karate);
-
-    //std::cout << "\n\nRunning bfs_level (using mxv) ..." << std::endl;
-    //grb::Vector<grb::IndexType> levels(num_nodes);
-    //algorithms::bfs_level(G_karate, grb::IndexType(0), levels);
-    //std::cout << "levels:" << std::endl;
-    //grb::print_vector(std::cout, levels);
+    //grb::print_matrix(std::cout, G_karate);
 
     std::cout << "\n\nRunning bfs_level_masked_v2 ..." << std::endl;
-    grb::Vector<grb::IndexType> levels1(num_nodes);
-    grb::Vector<unsigned int> root(num_nodes);
+    grb::Vector<grb::IndexType> levels1(nnodes);
+    grb::Vector<ScalarT> root(nnodes);
     root.setElement(grb::IndexType(0), 1);
     algorithms::bfs_level_masked_v2(G_karate, root, levels1);
     std::cout << "levels:" << std::endl;
     grb::print_vector(std::cout, levels1);
 
+    //std::cout << "\n\nRunning bfs_level (using mxv) ..." << std::endl;
+    //grb::Vector<grb::IndexType> levels(nnodes);
+    //algorithms::bfs_level(G_karate, grb::IndexType(0), levels);
+    //std::cout << "levels:" << std::endl;
+    //grb::print_vector(std::cout, levels);
+
 //    // Trying the row vector approach
-//    grb::Matrix<unsigned int>  root(1, num_nodes);
+//    grb::Matrix<ScalarT>  root(1, nnodes);
 //    // pick an arbitrary root:
 //    root.setElement(0, 0, 1);
 //
-//    grb::Matrix<unsigned int> levels1(1, num_nodes);
+//    grb::Matrix<ScalarT> levels1(1, nnodes);
 //
 //    algorithms::bfs_level(G_karate, root, levels1);
 //
@@ -144,7 +221,7 @@ int main()
 //    std::cout << "levels (using mxm):" << std::endl;
 //    grb::print_matrix(std::cout, levels1);
 
-//    grb::Matrix<unsigned int> levels(1, num_nodes);
+//    grb::Matrix<ScalarT> levels(1, nnodes);
 //    algorithms::batch_bfs_level_masked(G_karate, root, levels);
 //
 //    std::cout << "Graph: " << std::endl;
