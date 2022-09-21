@@ -23,7 +23,7 @@
 #
 # DM20-0442
 
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.12)
 
 project(GRAPHBLAS_TEMPLATE_LIBRARY_3)
 
@@ -64,6 +64,34 @@ endif()
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGRAPHBLAS_LOGGING_LEVEL=${LOGGING_LEVEL}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGRAPHBLAS_PROFILING_LEVEL=${PROFILING_LEVEL}")
 
+# use clang++
+if (NOT (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
+    message(FATAL_ERROR "CXX compiler must be clang")
+endif()
+
+# target RVV back-end
+if ("${ARCH_RVV}" STREQUAL "TRUE")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DARCH_RVV")
+    message("Setting march to rv64gcv0p10")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -menable-experimental-extensions --target=riscv64-unknown-linux -march=rv64gcv0p10")
+
+    if (NOT DEFINED ENV{RISCV_SYSROOT})
+        message(FATAL_ERROR "$RISCV_SYSROOT env variable must be set to a valid path")
+    endif()
+
+    message("Setting sysroot to $ENV{RISCV_SYSROOT}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --sysroot=$ENV{RISCV_SYSROOT}")
+
+    if (DEFINED ENV{RISCV_TOOLCHAIN})
+        message("Setting gcc riscv toolchain to --gcc-toolchain=$ENV{RISCV_TOOLCHAIN}")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --gcc-toolchain=$ENV{RISCV_TOOLCHAIN}")
+    endif()
+
+    # static compilation
+    message("Static compilation")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -static")
+endif()
+
 message("Configuring platform: ${PLATFORM}")
 
 if (EXISTS ${CMAKE_SOURCE_DIR}/graphblas/platforms/${PLATFORM})
@@ -94,23 +122,23 @@ file(GLOB GRAPHBLAS_HEADERS graphblas/*.hpp)
 # with settings and config files. Note the library dependency is not in here.
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-### Make basic tests
-file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${CMAKE_SOURCE_DIR}/test/*.cpp )
-foreach( testsourcefile ${TEST_SOURCES} )
-    get_filename_component(justname ${testsourcefile} NAME)
-    string( REPLACE ".cpp" "" testname ${justname} )
-    message("Adding: ${testname}")
-    add_executable( ${testname} ${testsourcefile} ${GRAPHBLAS_HEADERS})
-endforeach( testsourcefile ${TEST_SOURCES} )
-
-### Make extra PLATFORM-specific tests
-file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${PLATFORM_SOURCE_DIR}/test/*.cpp )
-foreach( testsourcefile ${TEST_SOURCES} )
-    get_filename_component(justname ${testsourcefile} NAME)
-    string( REPLACE ".cpp" "" testname ${justname} )
-    message("Adding: ${testname}_${PLATFORM} ")
-    add_executable( ${testname}_${PLATFORM} ${testsourcefile} ${GRAPHBLAS_HEADERS})
-endforeach( testsourcefile ${TEST_SOURCES} )
+#### Make basic tests
+#file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${CMAKE_SOURCE_DIR}/test/*.cpp )
+#foreach( testsourcefile ${TEST_SOURCES} )
+#    get_filename_component(justname ${testsourcefile} NAME)
+#    string( REPLACE ".cpp" "" testname ${justname} )
+#    message("Adding: ${testname}")
+#    add_executable( ${testname} ${testsourcefile} ${GRAPHBLAS_HEADERS})
+#endforeach( testsourcefile ${TEST_SOURCES} )
+#
+#### Make extra PLATFORM-specific tests
+#file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${PLATFORM_SOURCE_DIR}/test/*.cpp )
+#foreach( testsourcefile ${TEST_SOURCES} )
+#    get_filename_component(justname ${testsourcefile} NAME)
+#    string( REPLACE ".cpp" "" testname ${justname} )
+#    message("Adding: ${testname}_${PLATFORM} ")
+#    add_executable( ${testname}_${PLATFORM} ${testsourcefile} ${GRAPHBLAS_HEADERS})
+#endforeach( testsourcefile ${TEST_SOURCES} )
 
 ## Make demos
 file( GLOB TEST_SOURCES LIST_DIRECTORIES false ${CMAKE_SOURCE_DIR}/demo/*.cpp )
