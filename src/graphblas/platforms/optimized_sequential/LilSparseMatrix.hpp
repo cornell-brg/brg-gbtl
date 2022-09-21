@@ -184,6 +184,31 @@ namespace grb
                     setElement(*i_it, *j_it, *v_it, dup);
                     ++i_it; ++j_it; ++v_it;
                 }
+
+#if GRAPHBLAS_PROFILING_LEVEL > 0
+                // figure out the min/max nnz and stddev
+                auto min_nnz = m_data[0].size();
+                auto max_nnz = m_data[0].size();
+                float mean   = (float) m_nvals / (float) m_num_rows;
+                float stddev = std::pow(std::fabs(m_data[0].size() - mean), 2);
+
+                for (auto i = 1; i < m_num_rows; ++i) {
+                    if (min_nnz > m_data[i].size())
+                        min_nnz = m_data[i].size();
+                    if (max_nnz < m_data[i].size())
+                        max_nnz = m_data[i].size();
+                    stddev += std::pow(std::fabs(m_data[i].size() - mean), 2);
+                }
+
+                stddev = std::sqrt(stddev / m_num_rows);
+
+                GRB_PROFILE("mtx: nnodes="  + std::to_string(m_num_rows));
+                GRB_PROFILE("mtx: nedges="  + std::to_string(m_nvals));
+                GRB_PROFILE("mtx: min_nnz=" + std::to_string(min_nnz));
+                GRB_PROFILE("mtx: max_nnz=" + std::to_string(max_nnz));
+                GRB_PROFILE("mtx: mean_nnz=" + std::to_string(mean));
+                GRB_PROFILE("mtx: stddevs=" + std::to_string(stddev));
+#endif
             }
 
             void clear()
