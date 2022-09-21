@@ -32,9 +32,17 @@
 #include <vector>
 #include <iostream>
 
+#ifdef ARCH_RVV
+#include <riscv_vector.h>
+#endif
+
 namespace grb
 {
-    using IndexType = uint64_t;  /// @todo Consider template param for index type
+    //using IndexType = uint64_t;  /// @todo Consider template param for index type
+    using IndexType      = uint32_t; // @Tuan: our vector models only support 32-bit types
+#ifdef ARCH_RVV
+    using RVVIndexType   = vuint32m1_t;
+#endif
     using IndexArrayType = std::vector<IndexType>;
 
     //**************************************************************************
@@ -154,4 +162,7 @@ namespace grb
 
     template <class MatrixT>
     inline constexpr bool is_transpose_v<TransposeView<MatrixT>> = true;
+
+    template <class T>
+    constexpr bool always_false = false;
 }

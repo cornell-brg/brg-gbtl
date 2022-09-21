@@ -35,6 +35,11 @@
 #include <utility>
 #include <array>
 
+#ifdef ARCH_RVV
+#include <graphblas/rvv_helpers.hpp>
+#include <riscv_vector.h>
+#endif
+
 namespace grb
 {
     namespace detail
@@ -166,11 +171,33 @@ namespace grb
         inline D3 operator()(D1 lhs, D2 rhs) const { return lhs || rhs; }
     };
 
+#ifdef ARCH_RVV
+    template<typename D1, typename D2 = D1, typename D3 = D1>
+    struct LogicalOr_RVV
+    {
+        inline D3 operator()(D1 lhs, D2 rhs, size_t vlen) const
+        {
+            return vor_vv(lhs, rhs, vlen);
+        }
+    };
+#endif
+
     template <typename D1 = bool, typename D2 = D1, typename D3 = D1>
     struct LogicalAnd
     {
         inline D3 operator()(D1 lhs, D2 rhs) const { return lhs && rhs; }
     };
+
+#ifdef ARCH_RVV
+    template<typename D1, typename D2 = D1, typename D3 = D1>
+    struct LogicalAnd_RVV
+    {
+        inline D3 operator()(D1 lhs, D2 rhs, size_t vlen) const
+        {
+            return vand_vv(lhs, rhs, vlen);
+        }
+    };
+#endif
 
     template <typename D1 = bool, typename D2 = D1, typename D3 = D1>
     struct LogicalXor
@@ -322,6 +349,17 @@ namespace grb
         inline D3 operator()(D1 lhs, D2 rhs) const { return lhs + rhs; }
     };
 
+#ifdef ARCH_RVV
+    template<typename D1, typename D2 = D1, typename D3 = D1>
+    struct Plus_RVV
+    {
+        inline D3 operator()(D1 lhs, D2 rhs, size_t vlen) const
+        {
+            return vadd_vv(lhs, rhs, vlen);
+        }
+    };
+#endif
+
     template<typename D1, typename D2 = D1, typename D3 = D1>
     struct Minus
     {
@@ -333,6 +371,17 @@ namespace grb
     {
         inline D3 operator()(D1 lhs, D2 rhs) const { return lhs * rhs; }
     };
+
+#ifdef ARCH_RVV
+    template<typename D1, typename D2 = D1, typename D3 = D1>
+    struct Times_RVV
+    {
+        inline D3 operator()(D1 lhs, D2 rhs, size_t vlen) const
+        {
+            return vmul_vv(lhs, rhs, vlen);
+        }
+    };
+#endif
 
     template<typename D1, typename D2 = D1, typename D3 = D1>
     struct Div
@@ -374,16 +423,36 @@ namespace grb
     public:                                                     \
         using result_type = ScalarT;                            \
                                                                 \
-        ScalarT identity() const                                \
+        inline ScalarT identity() const                                \
         {                                                       \
             return static_cast<ScalarT>(IDENTITY);              \
         }                                                       \
                                                                 \
-        ScalarT operator()(ScalarT lhs, ScalarT rhs) const      \
+        inline ScalarT operator()(ScalarT lhs, ScalarT rhs) const      \
         {                                                       \
             return BINARYOP<ScalarT>()(lhs, rhs);               \
         }                                                       \
     };
+
+#ifdef ARCH_RVV
+#define GEN_GRAPHBLAS_MONOID_RVV(M_NAME, BINARYOP, IDENTITY)                   \
+    template <typename VectorT>                                                \
+    struct M_NAME                                                              \
+    {                                                                          \
+    public:                                                                    \
+        using result_type = VectorT;                                           \
+                                                                               \
+        inline VectorT identity(size_t vlen) const                             \
+        {                                                                      \
+            return vmv_v_x(IDENTITY, vlen);                                    \
+        }                                                                      \
+                                                                               \
+        inline VectorT operator()(VectorT lhs, VectorT rhs, size_t vlen) const \
+        {                                                                      \
+            return BINARYOP<VectorT>()(lhs, rhs, vlen);                        \
+        }                                                                      \
+    };
+#endif
 
 //****************************************************************************
 namespace grb
@@ -396,6 +465,13 @@ namespace grb
     GEN_GRAPHBLAS_MONOID(LogicalAndMonoid,  LogicalAnd,  true)
     GEN_GRAPHBLAS_MONOID(LogicalXorMonoid,  LogicalXor,  false)
     GEN_GRAPHBLAS_MONOID(LogicalXnorMonoid, LogicalXnor, true)
+
+#ifdef ARCH_RVV
+    GEN_GRAPHBLAS_MONOID_RVV(PlusMonoid_RVV,  Plus_RVV,  0)
+    GEN_GRAPHBLAS_MONOID_RVV(TimesMonoid_RVV, Times_RVV, 1)
+    GEN_GRAPHBLAS_MONOID_RVV(LogicalOrMonoid_RVV,  LogicalOr_RVV,  0)
+    GEN_GRAPHBLAS_MONOID_RVV(LogicalAndMonoid_RVV, LogicalAnd_RVV, 1)
+#endif
 
     // ***********************************************************************
     // MaxMonoid identity depends on the type requiring class templates and SFINAE
@@ -510,16 +586,57 @@ namespace grb
         using second_argument_type = D2;                                \
         using result_type = D3;                                         \
                                                                         \
-        D3 add(D3 a, D3 b) const                                        \
+        inline D3 add(D3 a, D3 b) const                                        \
         { return ADD_MONOID<D3>()(a, b); }                              \
                                                                         \
-        D3 mult(D1 a, D2 b) const                                       \
+        inline D3 mult(D1 a, D2 b) const                                       \
         { return MULT_BINARYOP<D1,D2,D3>()(a, b); }                     \
                                                                         \
-        D3 zero() const                                                 \
+        inline D3 zero() const                                                 \
         { return ADD_MONOID<D3>().identity(); }                         \
     };
 
+#ifdef ARCH_RVV
+#define GEN_GRAPHBLAS_SEMIRING_RVV(SRNAME, ADD_MONOID, MULT_BINARYOP)                   \
+    template <typename D1, typename D2=D1, typename D3=D1>                              \
+    class SRNAME                                                                        \
+    {                                                                                   \
+    public:                                                                             \
+        using first_argument_type = D1;                                                 \
+        using second_argument_type = D2;                                                \
+        using result_type = D3;                                                         \
+                                                                                        \
+        using D1_vec = typename                                                         \
+                       std::conditional<std::is_same<D1, uint32_t>::value, vuint32m1_t, \
+                       std::conditional<std::is_same<D1, int32_t>::value, vint32m1_t,   \
+                       std::conditional<std::is_same<D1, float>::value, vfloat32m1_t,   \
+                                        int32_t>>>::type;                               \
+        using D2_vec = typename                                                         \
+                       std::conditional<std::is_same<D2, uint32_t>::value, vuint32m1_t, \
+                       std::conditional<std::is_same<D2, int32_t>::value, vint32m1_t,   \
+                       std::conditional<std::is_same<D2, float>::value, vfloat32m1_t,   \
+                                        int32_t>>>::type;                               \
+        using D3_vec = typename                                                         \
+                       std::conditional<std::is_same<D3, uint32_t>::value, vuint32m1_t, \
+                       std::conditional<std::is_same<D3, int32_t>::value, vint32m1_t,   \
+                       std::conditional<std::is_same<D3, float>::value, vfloat32m1_t,   \
+                                        int32_t>>>::type;                               \
+                                                                                        \
+        SRNAME()                                                                        \
+        {                                                                               \
+            static_assert(std::is_same<D1_vec, int32_t>::value == false);               \
+        }                                                                               \
+                                                                                        \
+        inline D3_vec add(D3_vec a, D3_vec b, size_t vlen) const                        \
+        { return ADD_MONOID<D3_vec>()(a, b, vlen); }                                    \
+                                                                                        \
+        inline D3_vec mult(D1_vec a, D2_vec b, size_t vlen) const                       \
+        { return MULT_BINARYOP<D1_vec,D2_vec,D3_vec>()(a, b, vlen); }                   \
+                                                                                        \
+        inline D3_vec zero(size_t vlen) const                                           \
+        { return ADD_MONOID<D3_vec>().identity(vlen); }                                 \
+    };
+#endif
 
 namespace grb
 {
@@ -530,6 +647,9 @@ namespace grb
     //************************************************************************
     // "true" Arithmetic Semiring aka PlusTimesSemiring
     GEN_GRAPHBLAS_SEMIRING(ArithmeticSemiring, PlusMonoid, Times)
+#ifdef ARCH_RVV
+    GEN_GRAPHBLAS_SEMIRING_RVV(ArithmeticSemiring_RVV, PlusMonoid_RVV, Times_RVV)
+#endif
 
     //************************************************************************
     /// @note the Plus operator would need to be "infinity aware" if the caller
@@ -565,7 +685,15 @@ namespace grb
     //************************************************************************
     /// @todo restrict to boolean?
     GEN_GRAPHBLAS_SEMIRING(LogicalSemiring, LogicalOrMonoid,   LogicalAnd)
+#ifdef ARCH_RVV
+    GEN_GRAPHBLAS_SEMIRING_RVV(LogicalSemiring_RVV, LogicalOrMonoid_RVV, LogicalAnd_RVV)
+#endif
+
     GEN_GRAPHBLAS_SEMIRING(AndOrSemiring,   LogicalAndMonoid,  LogicalOr)
+#ifdef ARCH_RVV
+    GEN_GRAPHBLAS_SEMIRING_RVV(AndOrSemiring_RVV, LogicalAndMonoid_RVV, LogicalOr_RVV)
+#endif
+
     GEN_GRAPHBLAS_SEMIRING(XorAndSemiring,  LogicalXorMonoid,  LogicalAnd)
     GEN_GRAPHBLAS_SEMIRING(XnorOrSemiring,  LogicalXnorMonoid, LogicalOr)
 
