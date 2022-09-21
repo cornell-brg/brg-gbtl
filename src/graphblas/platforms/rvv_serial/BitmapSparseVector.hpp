@@ -45,21 +45,6 @@ namespace grb
         public:
             using ScalarType = ScalarT;
 
-            // Ambiguous with size constructor
-            // template <typename OtherVectorT>
-            // BitmapSparseVector(OtherVectorT const &rhs)
-            //     : m_size(rhs.m_size),
-            //       m_nvals(rhs.m_nvals),
-            //       m_vals(rhs.m_vals.size()),
-            //       m_bitmap(rhs.m_bitmap)
-            // {
-            //     for (size_t ix = 0; ix < rhs.m_vals.size(); ++ix)
-            //     {
-            //         m_vals[ix] =
-            //             static_cast<ScalarType>(rhs.m_vals[ix]);
-            //     }
-            // }
-
             /**
              * @brief Construct an empty sparse vector with given size
              *
@@ -67,9 +52,12 @@ namespace grb
              */
             BitmapSparseVector(IndexType nsize)
                 : m_size(nsize),
-                  m_nvals(0),
                   m_vals(nsize),
+#ifndef ARCH_RVV
                   m_bitmap(nsize, false)
+#else
+                  m_bitmap(nsize, 0)
+#endif
             {
                 if (nsize == 0)
                 {
@@ -79,9 +67,12 @@ namespace grb
 
             BitmapSparseVector(IndexType nsize, ScalarT const &value)
                 : m_size(nsize),
-                  m_nvals(0),
                   m_vals(nsize, value),
-                  m_bitmap(nsize, true)
+#ifndef ARCH_RVV
+                  m_bitmap(nsize, false)
+#else
+                  m_bitmap(nsize, 0)
+#endif
             {
             }
 
@@ -94,9 +85,12 @@ namespace grb
              */
             BitmapSparseVector(std::vector<ScalarT> const &rhs)
                 : m_size(rhs.size()),
-                  m_nvals(rhs.size()),
                   m_vals(rhs),
+#ifndef ARCH_RVV
                   m_bitmap(rhs.size(), true)
+#else
+                  m_bitmap(rhs.size(), 1)
+#endif
             {
                 if (rhs.size() == 0)
                 {
@@ -116,9 +110,12 @@ namespace grb
             BitmapSparseVector(std::vector<ScalarT> const &rhs,
                                ScalarT const              &zero)
                 : m_size(rhs.size()),
-                  m_nvals(0),
                   m_vals(rhs.size()),
+#ifndef ARCH_RVV
                   m_bitmap(rhs.size(), false)
+#else
+                  m_bitmap(rhs.size(), 0)
+#endif
             {
                 if (rhs.size() == 0)
                 {
@@ -130,8 +127,11 @@ namespace grb
                     if (rhs[idx] != zero)
                     {
                         m_vals[idx] = rhs[idx];
+#ifndef ARCH_RVV
                         m_bitmap[idx] = true;
-                        ++m_nvals;
+#else
+                        m_bitmap[idx] = 1;
+#endif
                     }
                 }
             }
@@ -145,9 +145,12 @@ namespace grb
                 std::vector<IndexType> const &indices,
                 std::vector<ScalarT>   const &values)
                 : m_size(nsize),
-                  m_nvals(0),
                   m_vals(nsize),
+#ifndef ARCH_RVV
                   m_bitmap(nsize, false)
+#else
+                  m_bitmap(nsize, 0)
+#endif
             {
                 /// @todo check for same size indices and values
                 for (IndexType idx = 0; idx < indices.size(); ++idx)
@@ -159,8 +162,11 @@ namespace grb
                     }
 
                     m_vals[i] = values[idx];
+#ifndef ARCH_RVV
                     m_bitmap[i] = true;
-                    ++m_nvals;
+#else
+                    m_bitmap[i] = 1;
+#endif
                 }
             }
 
@@ -172,7 +178,6 @@ namespace grb
              */
             BitmapSparseVector(BitmapSparseVector<ScalarT> const &rhs)
                 : m_size(rhs.m_size),
-                  m_nvals(rhs.m_nvals),
                   m_vals(rhs.m_vals),
                   m_bitmap(rhs.m_bitmap)
             {
@@ -197,7 +202,6 @@ namespace grb
                         throw DimensionException();
                     }
 
-                    m_nvals = rhs.m_nvals;
                     m_vals = rhs.m_vals;
                     m_bitmap = rhs.m_bitmap;
                 }
@@ -220,9 +224,12 @@ namespace grb
                 for (IndexType idx = 0; idx < rhs.size(); ++idx)
                 {
                     m_vals[idx] = rhs[idx];
+#ifndef ARCH_RVV
                     m_bitmap[idx] = true;
+#else
+                    m_bitmap[idx] = 1;
+#endif
                 }
-                m_nvals = m_size;
                 return *this;
             }
 
@@ -234,7 +241,7 @@ namespace grb
              */
             bool operator==(BitmapSparseVector<ScalarT> const &rhs) const
             {
-                if ((m_size != rhs.m_size) || (m_nvals != rhs.m_nvals))
+                if (m_size != rhs.m_size)
                 {
                     return false;
                 }
@@ -272,13 +279,47 @@ namespace grb
 
             void clear()
             {
-                m_nvals = 0;
                 //m_vals.clear();
+#ifndef ARCH_RVV
                 m_bitmap.assign(m_size, false);
+#else
+                m_bitmap.assign(m_size, 0);
+#endif
             }
 
-            IndexType size() const { return m_size; }
-            IndexType nvals() const { return m_nvals; }
+            IndexType size() const
+            {
+                return m_size;
+            }
+
+            IndexType nvals() const
+            {
+                // count how many non-zero elements
+                // @Tuan: TODO considering maintaining a variable m_nvals
+                // instead of re-counting how many non-zeros everytime
+#ifndef ARCH_RVV
+                return std::count(m_bitmap.begin(), m_bitmap.end(), true);
+#else
+                size_t max_vlen = vsetvl_e32m1(m_size);
+                size_t vlen     = 0;
+                vuint32m1_t partial_sum_v = vmv_v_x(static_cast<uint32_t>(0), max_vlen);
+
+                for (auto i = 0; i < m_size; i += vlen) {
+                    vlen = vsetvl_e32m1(m_size - i);
+                    partial_sum_v = vadd_vv(partial_sum_v,
+                                            vle_v(m_bitmap.data() + i, vlen),
+                                            vlen);
+                }
+
+                vuint32m1_t red_sum_v =
+                        vredsum_vs_u32m1_u32m1(
+                                red_sum_v,
+                                partial_sum_v,
+                                vmv_v_x(static_cast<uint32_t>(0), vlen),
+                                max_vlen);
+                return vmv_x_s_u32m1_u32(red_sum_v);
+#endif
+            }
 
             /**
              * @brief Resize the vector (smaller or larger)
@@ -295,35 +336,17 @@ namespace grb
                 if (new_size < m_size)
                 {
                     m_size = new_size;
-                    // compute new m_nvals when shrinking
-                    if (new_size < m_size/2)
-                    {
-                        // count remaining elements
-                        IndexType new_nvals = 0UL;
-                        new_nvals = std::reduce(m_bitmap.begin(),
-                                                m_bitmap.begin() + new_size,
-                                                new_nvals,
-                                               std::plus<IndexType>());
-                        m_nvals = new_nvals;
-                    }
-                    else
-                    {
-                        // count elements to be removed
-                        IndexType num_vals = 0UL;
-                        num_vals = std::reduce(m_bitmap.begin() + new_size,
-                                               m_bitmap.end(),
-                                               num_vals,
-                                               std::plus<IndexType>());
-                        m_nvals -= num_vals;
-                    }
-
                     m_bitmap.resize(new_size);
                     m_vals.resize(new_size);
                 }
                 else if (new_size > m_size)
                 {
                     m_vals.resize(new_size);
+#ifndef ARCH_RVV
                     m_bitmap.resize(new_size, false);
+#else
+                    m_bitmap.resize(new_size, 0);
+#endif
                     m_size = new_size;
                 }
             }
@@ -340,7 +363,11 @@ namespace grb
                        BinaryOpT     dup = BinaryOpT())
             {
                 std::vector<ScalarType> vals(m_size);
+#ifndef ARCH_RVV
                 std::vector<bool> bitmap(m_size);
+#else
+                std::vector<uint32_t> bitmap(m_size);
+#endif
 
                 /// @todo check for same size indices and values
                 for (IndexType idx = 0; idx < nvals; ++idx)
@@ -351,20 +378,27 @@ namespace grb
                         throw IndexOutOfBoundsException();
                     }
 
+#ifndef ARCH_RVV
                     if (bitmap[i] == true)
+#else
+                    if (bitmap[i] == 1)
+#endif
                     {
                         vals[i] = dup(vals[i], v_it[idx]);
                     }
                     else
                     {
                         vals[i] = v_it[idx];
+#ifndef ARCH_RVV
                         bitmap[i] = true;
+#else
+                        bitmap[i] = 1;
+#endif
                     }
                 }
 
                 m_vals.swap(vals);
                 m_bitmap.swap(bitmap);
-                m_nvals = nvals;
             }
 
             bool hasElement(IndexType index) const
@@ -374,13 +408,29 @@ namespace grb
                     throw IndexOutOfBoundsException();
                 }
 
+#ifndef ARCH_RVV
                 return m_bitmap[index];
+#else
+                return m_bitmap[index] == 1;
+#endif
             }
 
             bool hasElementNoCheck(IndexType index) const
             {
+#ifndef ARCH_RVV
                 return m_bitmap[index];
+#else
+                return m_bitmap[index] == 1;
+#endif
             }
+
+#ifdef ARCH_RVV
+            vbool32_t hasElementNoCheck(const RVVIndexType& index_v, size_t vlen) const
+            {
+                auto bitmap_v = vlxe_v(m_bitmap.data(), index_v, vlen);
+                return vmseq_vx_u32m1_b32(bitmap_v, 1, vlen);
+            }
+#endif
 
             /**
              * @brief Access the elements of this BitmapSparseVector given index.
@@ -400,7 +450,11 @@ namespace grb
                     throw IndexOutOfBoundsException();
                 }
 
+#ifndef ARCH_RVV
                 if (m_bitmap[index] == false)
+#else
+                if (m_bitmap[index] == 0)
+#endif
                 {
                     throw NoValueException();
                 }
@@ -413,6 +467,13 @@ namespace grb
                 return m_vals[index];
             }
 
+#ifdef ARCH_RVV
+            auto extractElementNoCheck(const RVVIndexType& index_v, size_t vlen) const
+            {
+                return grb::vlxe_v(m_vals.data(), index_v, vlen);
+            }
+#endif
+
             /// @todo Not certain about this implementation
             void setElement(IndexType      index,
                             ScalarT const &new_val)
@@ -422,11 +483,17 @@ namespace grb
                     throw IndexOutOfBoundsException();
                 }
                 m_vals[index] = new_val;
+#ifndef ARCH_RVV
                 if (m_bitmap[index] == false)
                 {
-                    ++m_nvals;
                     m_bitmap[index] = true;
                 }
+#else
+                if (m_bitmap[index] == 0)
+                {
+                    m_bitmap[index] = 1;
+                }
+#endif
             }
 
             /// @todo Not certain about this implementation
@@ -434,12 +501,68 @@ namespace grb
                                    ScalarT const &new_val)
             {
                 m_vals[index] = new_val;
+#ifndef ARCH_RVV
                 if (m_bitmap[index] == false)
                 {
-                    ++m_nvals;
                     m_bitmap[index] = true;
                 }
+#else
+                if (m_bitmap[index] == 0)
+                {
+                    m_bitmap[index] = 1;
+                }
+#endif
             }
+
+#ifdef ARCH_RVV
+            template<typename VectorT>
+            void setElementNoCheck(const RVVIndexType& index_vec,
+                                   const VectorT&     new_val_vec,
+                                   size_t             vlen)
+            {
+                if constexpr(std::is_same<ScalarT, uint32_t>::value) {
+                    static_assert(std::is_same<VectorT, vuint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, int32_t>::value) {
+                    static_assert(std::is_same<VectorT, vint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, float>::value) {
+                    static_assert(std::is_same<VectorT, vfloat32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else {
+                    static_assert(grb::always_false<ScalarT>, "vle_v: Unsupported type");
+                }
+
+                vsxe_v(m_vals.data(), index_vec, new_val_vec, vlen);
+                vsxe_v(m_bitmap.data(), index_vec,
+                       vmv_v_x(static_cast<grb::IndexType>(1), vlen), vlen);
+            }
+
+            template<typename VectorT>
+            void setElementNoCheck(const RVVIndexType& index_vec,
+                                   const VectorT&     new_val_vec,
+                                   const vbool32_t&   mask_vec,
+                                   size_t             vlen)
+            {
+                if constexpr(std::is_same<ScalarT, uint32_t>::value) {
+                    static_assert(std::is_same<VectorT, vuint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, int32_t>::value) {
+                    static_assert(std::is_same<VectorT, vint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, float>::value) {
+                    static_assert(std::is_same<VectorT, vfloat32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else {
+                    static_assert(grb::always_false<ScalarT>, "vle_v: Unsupported type");
+                }
+
+                vsxe_v_m(m_vals.data(), index_vec, new_val_vec, mask_vec, vlen);
+                vsxe_v_m(m_bitmap.data(), index_vec,
+                         vmv_v_x(static_cast<grb::IndexType>(1), vlen),
+                         mask_vec, vlen);
+            }
+#endif
 
             void removeElement(IndexType index)
             {
@@ -447,22 +570,46 @@ namespace grb
                 {
                     throw IndexOutOfBoundsException();
                 }
-
+#ifndef ARCH_RVV
                 if (m_bitmap[index] == true)
                 {
-                    --m_nvals;
                     m_bitmap[index] = false;
                 }
+#else
+                if (m_bitmap[index] == 1)
+                {
+                    m_bitmap[index] = 0;
+                }
+#endif
             }
 
             void removeElementNoCheck(IndexType index)
             {
+#ifndef ARCH_RVV
                 if (m_bitmap[index] == true)
                 {
-                    --m_nvals;
                     m_bitmap[index] = false;
                 }
+#else
+                if (m_bitmap[index] == 1)
+                {
+                    m_bitmap[index] = 0;
+                }
+#endif
             }
+
+#ifdef ARCH_RVV
+            void removeElementNoCheck(const RVVIndexType& index_vec,
+                                      const vbool32_t&   mask_vec,
+                                      size_t             vlen)
+            {
+                vsxe_v_m(m_bitmap.data(),
+                         index_vec,
+                         vmv_v_x(static_cast<grb::IndexType>(0), vlen),
+                         mask_vec,
+                         vlen);
+            }
+#endif
 
             template<typename RAIteratorIT,
                      typename RAIteratorVT>
@@ -491,7 +638,7 @@ namespace grb
                 os << "Optimized Sequential Backend: ";
                 os << "backend::BitmapSparseVector<" << typeid(ScalarT).name() << ">";
                 os << ", size  = " << m_size;
-                os << ", nvals = " << m_nvals << std::endl;
+                os << ", nvals = " << nvals() << std::endl;
 
                 os << "[";
                 if (m_bitmap[0]) os << m_vals[0]; else os << "-";
@@ -508,100 +655,22 @@ namespace grb
                 mat.printInfo(os);
                 return os;
             }
-#if 0
-            // =======================================
-            // Iterator class
-            // =======================================
-            // a forward iterator only...for now.
-            class iterator
-            {
-            public:
-                iterator(BitmapSparseVector<ScalarT> &vec,
-                         grb::IndexType               curr = 0) :
-                    m_bsvec(vec), m_curr(curr)
-                {
-                    //std::cout << "Constructed: size = " << m_bsvec.m_size
-                    //          << ", nvals = " << m_bsvec.m_nvals << std::endl;
-                    if (!m_bsvec.m_bitmap[m_curr] && m_curr < m_bsvec.m_size)
-                        advance();
-                    //std::cout << "ctor DONE" << std::endl;
-                }
-
-                std::tuple<grb::IndexType, ScalarT&> operator*()
-                {
-                    return std::tuple<grb::IndexType, ScalarT&>(
-                        m_curr, m_bsvec.m_vals[m_curr]);
-                }
-
-                iterator &operator++()
-                {
-                    //std::cout << "operator++" << std::endl;
-                    advance();
-                    return *this;
-                }
-
-                iterator &operator++(int)
-                {
-                    advance();
-                    return iterator(m_bsvec, m_curr++);
-                }
-
-                bool operator==(iterator const &rhs)
-                {
-                    return (&m_bsvec == &rhs.m_bsvec) && (m_curr == rhs.m_curr);
-                }
-
-                bool operator!=(iterator const &rhs)
-                {
-                    return !operator==(rhs);
-                }
-
-            private:
-                void advance()
-                {
-                    while (++m_curr < m_bsvec.m_size && !m_bsvec.m_bitmap[m_curr])
-                    {
-                        //std::cout << "advanced: " << m_curr << std::endl;
-                    }
-                    //std::cout << "advance DONE: " << m_curr << std::endl;
-                }
-
-            private:
-                BitmapSparseVector<ScalarT> &m_bsvec;
-                grb::IndexType               m_curr;  // current location
-            };
-
-            friend class iterator;
 
         public:
-            iterator begin()
-            {
-                return iterator(*this);
-            }
-
-            const iterator begin() const
-            {
-                return const_iterator(*this);
-            }
-
-            iterator end()
-            {
-                return iterator(*this, m_size);
-            }
-
-            const iterator end() const
-            {
-                return iterator(*this, m_size);
-            }
+#ifndef ARCH_RVV
+            std::vector<bool> const &get_bitmap() const
+#else
+            std::vector<uint32_t> const &get_bitmap() const
 #endif
-        public:
-            std::vector<bool>    const &get_bitmap() const { return m_bitmap; }
-            std::vector<ScalarT> const &get_vals() const   { return m_vals; }
+            {
+                return m_bitmap;
+            }
+
+            std::vector<ScalarT> const &get_vals() const { return m_vals; }
 
             std::vector<std::tuple<IndexType,ScalarT> > getContents() const
             {
                 std::vector<std::tuple<IndexType,ScalarT> > contents;
-                contents.reserve(m_nvals);
                 for (IndexType idx = 0; idx < m_size; ++idx)
                 {
                     if (m_bitmap[idx])
@@ -619,17 +688,23 @@ namespace grb
                 clear();
                 for (auto&& [idx, val] : contents)
                 {
+#ifndef ARCH_RVV
                     m_bitmap[idx] = true;
+#else
+                    m_bitmap[idx] = 1;
+#endif
                     m_vals[idx]   = static_cast<ScalarT>(val);
-                    ++m_nvals;
                 }
             }
 
         private:
             IndexType             m_size;
-            IndexType             m_nvals;
             std::vector<ScalarT>  m_vals;
+#ifndef ARCH_RVV
             std::vector<bool>     m_bitmap;
+#else
+            std::vector<uint32_t> m_bitmap;
+#endif
         };
     } // backend
 } // grb

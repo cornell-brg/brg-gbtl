@@ -1351,6 +1351,21 @@ namespace grb
             return tmp;
         }
 
+#ifdef ARCH_RVV
+        template <typename MScalarT>
+        inline vbool32_t check_mask_1D(
+            const BitmapSparseVector<MScalarT>& mask,
+            bool                                complement_flag,
+            const RVVIndexType&                 target_index_v,
+            size_t                              vlen)
+        {
+            // @Tuan: DO NOT SUPPORT structure_flag yet!
+            auto has_elem_mask = mask.hasElementNoCheck(target_index_v, vlen);
+            return (complement_flag) ?
+                          vmnot_m_b32(has_elem_mask, vlen) : has_elem_mask;
+        }
+#endif
+
         template <typename MScalarT>
         inline bool check_mask_1D(
             BitmapSparseVector<MScalarT> const &mask,
@@ -1367,6 +1382,17 @@ namespace grb
             //std::cout << "C";
             return check_mask_1D(mask.m_vec, false, true, target_index);
         }
+
+#ifdef ARCH_RVV
+        template <typename MaskT>
+        inline vbool32_t check_mask_1D(
+            const grb::VectorComplementView<MaskT>& mask,
+            const RVVIndexType&                     target_index_v,
+            size_t                                  vlen)
+        {
+            return check_mask_1D(mask.m_vec, true, target_index_v, vlen);
+        }
+#endif
 
         template <typename MaskT>
         inline bool check_mask_1D(
@@ -1402,29 +1428,32 @@ namespace grb
                                         BitmapSparseVector<TScalarT> const &t,
                                         OutputControlEnum                   outp)
         {
-            for (grb::IndexType idx = 0; idx < w.size(); ++idx)
-            {
-                if (check_mask_1D(mask, idx))
-                {
-                    if (t.hasElementNoCheck(idx))
-                    {
-                        if (w.hasElementNoCheck(idx))
-                        {
-                            w.setElementNoCheck(
-                                idx, accum(w.extractElementNoCheck(idx),
-                                           t.extractElementNoCheck(idx)));
-                        }
-                        else
-                        {
-                            w.setElementNoCheck(idx, t.extractElementNoCheck(idx));
-                        }
-                    }
-                }
-                else if (outp == REPLACE)
-                {
-                    w.removeElementNoCheck(idx);
-                }
-            }
+            //for (grb::IndexType idx = 0; idx < w.size(); ++idx)
+            //{
+            //    if (check_mask_1D(mask, idx))
+            //    {
+            //        if (t.hasElementNoCheck(idx))
+            //        {
+            //            if (w.hasElementNoCheck(idx))
+            //            {
+            //                w.setElementNoCheck(
+            //                    idx, accum(w.extractElementNoCheck(idx),
+            //                               t.extractElementNoCheck(idx)));
+            //            }
+            //            else
+            //            {
+            //                w.setElementNoCheck(idx, t.extractElementNoCheck(idx));
+            //            }
+            //        }
+            //    }
+            //    else if (outp == REPLACE)
+            //    {
+            //        w.removeElementNoCheck(idx);
+            //    }
+            //}
+
+            throw grb::NotImplementedException(
+                  std::string("INTERNAL ERROR at ") + __FILE__ + ":" + std::to_string(__LINE__));
         }
 
         //**********************************************************************
@@ -1437,6 +1466,7 @@ namespace grb
                                         BitmapSparseVector<TScalarT> const &t,
                                         OutputControlEnum                   outp)
         {
+#ifndef ARCH_RVV
             for (grb::IndexType idx = 0; idx < w.size(); ++idx)
             {
                 if (check_mask_1D(mask, idx))
@@ -1455,6 +1485,38 @@ namespace grb
                     w.removeElementNoCheck(idx);
                 }
             }
+#else
+            size_t       vlen  = vsetvl_e32m1(w.size());
+            RVVIndexType idx_v = vid_v_u32m1(vlen);
+
+            for (grb::IndexType idx = 0; idx < w.size(); idx += vlen) {
+                vlen              = vsetvl_e32m1(w.size() - idx);
+                auto mask_v       = check_mask_1D(mask, idx_v, vlen);
+                auto t_has_elem_v = t.hasElementNoCheck(idx_v, vlen);
+
+                // set elements
+                auto set_mask_v = vmand_mm_b32(mask_v, t_has_elem_v, vlen);
+                w.setElementNoCheck(idx_v,
+                                    t.extractElementNoCheck(idx_v, vlen),
+                                    set_mask_v,
+                                    vlen);
+
+                // remove elements
+                vbool32_t rm_mask_v;
+                if (outp == REPLACE) {
+                    rm_mask_v = vmnot_m_b32(mask_v, vlen);
+                } else {
+                    rm_mask_v = vmand_mm_b32(mask_v,
+                                             vmnot_m_b32(t_has_elem_v, vlen),
+                                             vlen);
+                }
+                w.removeElementNoCheck(idx_v, rm_mask_v, vlen);
+
+                // update idx_v for the next iteration by incrementing by the
+                // number of elements processed this iteration
+                idx_v = vadd_vx_u32m1(idx_v, vlen, vlen);
+            }
+#endif
         }
 
         //**********************************************************************
@@ -1467,22 +1529,25 @@ namespace grb
                                         BitmapSparseVector<TScalarT> const &t,
                                         OutputControlEnum                   outp)
         {
-            for (grb::IndexType idx = 0; idx < w.size(); ++idx)
-            {
-                if (t.hasElementNoCheck(idx))
-                {
-                    if (w.hasElementNoCheck(idx))
-                    {
-                        w.setElementNoCheck(idx,
-                                            accum(w.extractElementNoCheck(idx),
-                                                  t.extractElementNoCheck(idx)));
-                    }
-                    else
-                    {
-                        w.setElementNoCheck(idx, t.extractElementNoCheck(idx));
-                    }
-                }
-            }
+            //for (grb::IndexType idx = 0; idx < w.size(); ++idx)
+            //{
+            //    if (t.hasElementNoCheck(idx))
+            //    {
+            //        if (w.hasElementNoCheck(idx))
+            //        {
+            //            w.setElementNoCheck(idx,
+            //                                accum(w.extractElementNoCheck(idx),
+            //                                      t.extractElementNoCheck(idx)));
+            //        }
+            //        else
+            //        {
+            //            w.setElementNoCheck(idx, t.extractElementNoCheck(idx));
+            //        }
+            //    }
+            //}
+
+            throw grb::NotImplementedException(
+                  std::string("INTERNAL ERROR at ") + __FILE__ + ":" + std::to_string(__LINE__));
         }
 
         //**********************************************************************
@@ -1497,14 +1562,17 @@ namespace grb
             /// @todo implement move and/or swap when t and w same type
             /// @todo move/swap the bitmap regardless of type
 
-            w.clear();
-            for (grb::IndexType idx = 0; idx < w.size(); ++idx)
-            {
-                if (t.hasElementNoCheck(idx))
-                {
-                    w.setElementNoCheck(idx, t.extractElementNoCheck(idx));
-                }
-            }
+            //w.clear();
+            //for (grb::IndexType idx = 0; idx < w.size(); ++idx)
+            //{
+            //    if (t.hasElementNoCheck(idx))
+            //    {
+            //        w.setElementNoCheck(idx, t.extractElementNoCheck(idx));
+            //    }
+            //}
+
+            throw grb::NotImplementedException(
+                  std::string("INTERNAL ERROR at ") + __FILE__ + ":" + std::to_string(__LINE__));
         }
 
         //**********************************************************************
