@@ -134,6 +134,23 @@ inline void vse_v(ScalarT* addr, const VectorT& val_vec, size_t vlen)
 }
 
 template<typename ScalarT, typename VectorT>
+inline void vse_v_m(ScalarT* addr, const VectorT& val_vec, const vbool32_t& mask_vec, size_t vlen)
+{
+    if constexpr(std::is_same<ScalarT, uint32_t>::value) {
+        static_assert(std::is_same<VectorT, vuint32m1_t>::value, "vse_v_m: Mismatched type");
+        vse32_v_u32m1_m(mask_vec, addr, val_vec, vlen);
+    } else if constexpr(std::is_same<ScalarT, int32_t>::value) {
+        static_assert(std::is_same<VectorT, vint32m1_t>::value, "vse_v_m: Mismatched type");
+        vse32_v_i32m1_m(mask_vec, addr, val_vec, vlen);
+    } else if constexpr(std::is_same<ScalarT, float>::value) {
+        static_assert(std::is_same<VectorT, vfloat32m1_t>::value, "vse_v_m: Mismatched type");
+        vse32_v_f32m1_m(mask_vec, addr, val_vec, vlen);
+    } else {
+        static_assert(grb::always_false<ScalarT>, "vse_v_m: Unsupported type");
+    }
+}
+
+template<typename ScalarT, typename VectorT>
 inline void vsxe_v(const ScalarT* addr, const vuint32m1_t& index_vec,
                    const VectorT& val_vec, size_t vlen)
 {
@@ -154,7 +171,7 @@ inline void vsxe_v(const ScalarT* addr, const vuint32m1_t& index_vec,
 
 template<typename ScalarT, typename VectorT>
 inline void vsxe_v_m(const ScalarT* addr, const vuint32m1_t& index_vec,
-                     const VectorT& val_vec, const vbool32_t mask_vec, size_t vlen)
+                     const VectorT& val_vec, const vbool32_t& mask_vec, size_t vlen)
 {
     auto index_vec_byte = vmul_vx_u32m1(index_vec, sizeof(uint32_t), vlen);
     if constexpr(std::is_same<ScalarT, uint32_t>::value) {

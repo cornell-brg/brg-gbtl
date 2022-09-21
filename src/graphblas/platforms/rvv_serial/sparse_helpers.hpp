@@ -1364,6 +1364,19 @@ namespace grb
             return (complement_flag) ?
                           vmnot_m_b32(has_elem_mask, vlen) : has_elem_mask;
         }
+
+        template <typename MScalarT>
+        inline vbool32_t check_mask_1D(
+            const BitmapSparseVector<MScalarT>& mask,
+            bool                                complement_flag,
+            IndexType                           start_target_index,
+            size_t                              vlen)
+        {
+            // @Tuan: DO NOT SUPPORT structure_flag yet!
+            auto has_elem_mask = mask.hasElementNoCheck(start_target_index, vlen);
+            return (complement_flag) ?
+                          vmnot_m_b32(has_elem_mask, vlen) : has_elem_mask;
+        }
 #endif
 
         template <typename MScalarT>
@@ -1373,6 +1386,17 @@ namespace grb
         {
             return check_mask_1D(mask, false, false, target_index);
         }
+
+#ifdef ARCH_RVV
+        template <typename MScalarT>
+        inline vbool32_t check_mask_1D(
+            const BitmapSparseVector<MScalarT>& mask,
+            const RVVIndexType&                 target_index_v,
+            size_t                              vlen)
+        {
+            return check_mask_1D(mask, false, target_index_v, vlen);
+        }
+#endif
 
         template <typename MaskT>
         inline bool check_mask_1D(
@@ -1384,6 +1408,7 @@ namespace grb
         }
 
 #ifdef ARCH_RVV
+        /** Check mask of elements, given their indices */
         template <typename MaskT>
         inline vbool32_t check_mask_1D(
             const grb::VectorComplementView<MaskT>& mask,
@@ -1391,6 +1416,16 @@ namespace grb
             size_t                                  vlen)
         {
             return check_mask_1D(mask.m_vec, true, target_index_v, vlen);
+        }
+
+        /** Check mask of adjacent elements, given a starting index */
+        template <typename MaskT>
+        inline vbool32_t check_mask_1D(
+            const grb::VectorComplementView<MaskT>& mask,
+            IndexType                               start_target_index,
+            size_t                                  vlen)
+        {
+            return check_mask_1D(mask.m_vec, true, start_target_index, vlen);
         }
 #endif
 
@@ -1486,18 +1521,20 @@ namespace grb
                 }
             }
 #else
-            size_t       vlen  = vsetvl_e32m1(w.size());
-            RVVIndexType idx_v = vid_v_u32m1(vlen);
-
+            size_t vlen = 0;
             for (grb::IndexType idx = 0; idx < w.size(); idx += vlen) {
                 vlen              = vsetvl_e32m1(w.size() - idx);
-                auto mask_v       = check_mask_1D(mask, idx_v, vlen);
-                auto t_has_elem_v = t.hasElementNoCheck(idx_v, vlen);
+
+                //auto mask_v       = check_mask_1D(mask, idx_v, vlen);
+                //auto t_has_elem_v = t.hasElementNoCheck(idx_v, vlen);
+
+                auto mask_v       = check_mask_1D(mask, idx, vlen);
+                auto t_has_elem_v = t.hasElementNoCheck(idx, vlen);
 
                 // set elements
                 auto set_mask_v = vmand_mm_b32(mask_v, t_has_elem_v, vlen);
-                w.setElementNoCheck(idx_v,
-                                    t.extractElementNoCheck(idx_v, vlen),
+                w.setElementNoCheck(idx,
+                                    t.extractElementNoCheck(idx, vlen),
                                     set_mask_v,
                                     vlen);
 
@@ -1510,11 +1547,7 @@ namespace grb
                                              vmnot_m_b32(t_has_elem_v, vlen),
                                              vlen);
                 }
-                w.removeElementNoCheck(idx_v, rm_mask_v, vlen);
-
-                // update idx_v for the next iteration by incrementing by the
-                // number of elements processed this iteration
-                idx_v = vadd_vx_u32m1(idx_v, vlen, vlen);
+                w.removeElementNoCheck(idx, rm_mask_v, vlen);
             }
 #endif
         }

@@ -430,6 +430,12 @@ namespace grb
                 auto bitmap_v = vlxe_v(m_bitmap.data(), index_v, vlen);
                 return vmseq_vx_u32m1_b32(bitmap_v, 1, vlen);
             }
+
+            vbool32_t hasElementNoCheck(IndexType start_index, size_t vlen) const
+            {
+                auto bitmap_v = vle_v(m_bitmap.data() + start_index, vlen);
+                return vmseq_vx_u32m1_b32(bitmap_v, 1, vlen);
+            }
 #endif
 
             /**
@@ -471,6 +477,11 @@ namespace grb
             auto extractElementNoCheck(const RVVIndexType& index_v, size_t vlen) const
             {
                 return grb::vlxe_v(m_vals.data(), index_v, vlen);
+            }
+
+            auto extractElementNoCheck(IndexType start_index, size_t vlen) const
+            {
+                return grb::vle_v(m_vals.data() + start_index, vlen);
             }
 #endif
 
@@ -533,9 +544,40 @@ namespace grb
                     static_assert(grb::always_false<ScalarT>, "vle_v: Unsupported type");
                 }
 
-                vsxe_v(m_vals.data(), index_vec, new_val_vec, vlen);
-                vsxe_v(m_bitmap.data(), index_vec,
-                       vmv_v_x(static_cast<grb::IndexType>(1), vlen), vlen);
+                vsxe_v(m_vals.data(),
+                       index_vec,
+                       new_val_vec,
+                       vlen);
+                vsxe_v(m_bitmap.data(),
+                       index_vec,
+                       vmv_v_x(static_cast<grb::IndexType>(1), vlen),
+                       vlen);
+            }
+
+            template<typename VectorT>
+            void setElementNoCheck(IndexType          start_index,
+                                   const VectorT&     new_val_vec,
+                                   size_t             vlen)
+            {
+                if constexpr(std::is_same<ScalarT, uint32_t>::value) {
+                    static_assert(std::is_same<VectorT, vuint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, int32_t>::value) {
+                    static_assert(std::is_same<VectorT, vint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, float>::value) {
+                    static_assert(std::is_same<VectorT, vfloat32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else {
+                    static_assert(grb::always_false<ScalarT>, "vle_v: Unsupported type");
+                }
+
+                vse_v(m_vals.data() + start_index,
+                      new_val_vec,
+                      vlen);
+                vse_v(m_bitmap.data() + start_index,
+                      vmv_v_x(static_cast<grb::IndexType>(1), vlen),
+                      vlen);
             }
 
             template<typename VectorT>
@@ -557,10 +599,45 @@ namespace grb
                     static_assert(grb::always_false<ScalarT>, "vle_v: Unsupported type");
                 }
 
-                vsxe_v_m(m_vals.data(), index_vec, new_val_vec, mask_vec, vlen);
-                vsxe_v_m(m_bitmap.data(), index_vec,
+                vsxe_v_m(m_vals.data(),
+                         index_vec,
+                         new_val_vec,
+                         mask_vec,
+                         vlen);
+                vsxe_v_m(m_bitmap.data(),
+                         index_vec,
                          vmv_v_x(static_cast<grb::IndexType>(1), vlen),
-                         mask_vec, vlen);
+                         mask_vec,
+                         vlen);
+            }
+
+            template<typename VectorT>
+            void setElementNoCheck(IndexType          start_index,
+                                   const VectorT&     new_val_vec,
+                                   const vbool32_t&   mask_vec,
+                                   size_t             vlen)
+            {
+                if constexpr(std::is_same<ScalarT, uint32_t>::value) {
+                    static_assert(std::is_same<VectorT, vuint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, int32_t>::value) {
+                    static_assert(std::is_same<VectorT, vint32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else if constexpr(std::is_same<ScalarT, float>::value) {
+                    static_assert(std::is_same<VectorT, vfloat32m1_t>::value,
+                                  "BitmapSparseVector::setElementNoCheck: Mismatched types");
+                } else {
+                    static_assert(grb::always_false<ScalarT>, "vle_v: Unsupported type");
+                }
+
+                vse_v_m(m_vals.data() + start_index,
+                        new_val_vec,
+                        mask_vec,
+                        vlen);
+                vse_v_m(m_bitmap.data() + start_index,
+                        vmv_v_x(static_cast<grb::IndexType>(1), vlen),
+                        mask_vec,
+                        vlen);
             }
 #endif
 
@@ -600,14 +677,24 @@ namespace grb
 
 #ifdef ARCH_RVV
             void removeElementNoCheck(const RVVIndexType& index_vec,
-                                      const vbool32_t&   mask_vec,
-                                      size_t             vlen)
+                                      const vbool32_t&    mask_vec,
+                                      size_t              vlen)
             {
                 vsxe_v_m(m_bitmap.data(),
                          index_vec,
                          vmv_v_x(static_cast<grb::IndexType>(0), vlen),
                          mask_vec,
                          vlen);
+            }
+
+            void removeElementNoCheck(IndexType          start_index,
+                                      const vbool32_t&   mask_vec,
+                                      size_t             vlen)
+            {
+                vse_v_m(m_bitmap.data() + start_index,
+                        vmv_v_x(static_cast<grb::IndexType>(0), vlen),
+                        mask_vec,
+                        vlen);
             }
 #endif
 
