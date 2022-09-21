@@ -6,13 +6,17 @@ import os
 import struct
 
 graph_dict = {
+  # tiny
   'cage5'            : ('directed',   'float'),     #   37, 233   (toy-ish)
-  'soc-Pokec'        : ('directed',   'binary'),    # 1.6M, 30.0M (social)
-  'belgium_osm'      : ('undirected', 'binary'),    # 1.4M,  1.5M (road)
-  'kron_g500-logn17' : ('undirected', 'integer'),   # 0.1M, 10.0M (kron synthetic)
-  'web-Google'       : ('directed',   'binary'),    # 0.9M,  5.1M (web)
-  'delaunay_n19'     : ('undirected', 'binary'),    # 0.5M,  3.1M (delaunay)
-  'ASIC_680ks'       : ('directed',   'float'),     # 0.7M,  1.7M (circuit sim)
+  # small
+  'wiki-Vote'        : ('directed',   'binary'),    #   8K, 100K  (social)
+  ## large
+  #'soc-Pokec'        : ('directed',   'binary'),    # 1.6M, 30.0M (social)
+  #'belgium_osm'      : ('undirected', 'binary'),    # 1.4M,  1.5M (road)
+  #'kron_g500-logn17' : ('undirected', 'integer'),   # 0.1M, 10.0M (kron synthetic)
+  #'web-Google'       : ('directed',   'binary'),    # 0.9M,  5.1M (web)
+  #'delaunay_n19'     : ('undirected', 'binary'),    # 0.5M,  3.1M (delaunay)
+  #'ASIC_680ks'       : ('directed',   'float'),     # 0.7M,  1.7M (circuit sim)
 }
 
 def main():
