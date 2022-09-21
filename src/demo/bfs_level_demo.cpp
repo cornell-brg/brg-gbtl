@@ -118,12 +118,19 @@ int main(int argc, char* argv[])
     grb::IndexArrayType  src_arr;
     grb::IndexArrayType  dst_arr;
     std::vector<ScalarT> weights;
+    grb::IndexType       root_node = 0;
 
     // read mtx from an input file
-    if (argc == 2) {
+    if (argc == 3) {
         if (std::filesystem::path(argv[1]).extension().string() != std::string(".list")) {
             std::cerr << "Unsupported file format" << std::endl;
             return 1;
+        }
+
+        try {
+            root_node = std::stoi(std::string(argv[2]));
+        } catch (...) {
+            std::cerr << "Invalid command line arguments" << std::endl;
         }
 
         std::cout << "Reading input graph from an input file " << argv[1] << std::endl;
@@ -156,6 +163,13 @@ int main(int argc, char* argv[])
         std::cout << "data_type = " << data_type
                   << " (0-binary, 1-integer, 2-float)" << std::endl;
 
+        if (root_node >= nnodes) {
+            std::cerr << "Invalid root node: " << root_node << std::endl;
+            return 1;
+        }
+
+        std::cout << "root_node = " << root_node << std::endl;
+
         // src arr
         src_arr.resize(nedges);
         for (size_t i = 0; i < nedges; ++i) {
@@ -174,12 +188,15 @@ int main(int argc, char* argv[])
 
         // close
         in.close();
-    } else {
+    } else if (argc == 1) {
         std::cout << "Using the default matrix" << std::endl;
         nnodes  = num_nodes;
         src_arr = i;
         dst_arr = j;
         nedges  = src_arr.size();
+    } else {
+        std::cerr << "Wrong command line arguments" << std::endl;
+        return 1;
     }
 
     // set weights to 1s for this BFS_level since actual weights don't matter here
@@ -197,7 +214,7 @@ int main(int argc, char* argv[])
 
     // TODO select a root node that is actually connected
     grb::Vector<ScalarT> root(nnodes);
-    root.setElement(grb::IndexType(3), 1);
+    root.setElement(root_node, 1);
 
     algorithms::bfs_level_masked_v2(G_karate, root, levels1);
     std::cout << "levels:" << std::endl;
