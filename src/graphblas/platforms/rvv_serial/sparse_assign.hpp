@@ -853,7 +853,7 @@ namespace grb
             // execution error checks
             check_index_array_content(indices, w.size(),
                                       "assign(const vec): indices content check");
-//#ifndef ARCH_RVV
+#ifndef ARCH_RVV
             std::vector<std::tuple<IndexType, ValueT> > t;
 
             // Set all in T
@@ -877,35 +877,30 @@ namespace grb
             // =================================================================
             // Copy Z into the final output, w, considering mask and replace/merge
             write_with_opt_mask_1D(w, z, mask, outp);
-//#else
-//            static_assert(std::is_same<AccumT, grb::NoAccumulate>::value,
-//                "assign_constant (RVV implementation) only supports grb::NoAccumulate so far");
-//            static_assert(std::is_same<SequenceT, grb::AllIndices>::value,
-//                "assign_constant (RVV implementation) only supports grb::AllIndices so far");
-//
-//            if (outp == grb::MERGE) {
-//                // write val to all masked elements of w
-//                // unmasked elements are untouched
-//                size_t       vlen  = vsetvl_e32m1(w.size());
-//                RVVIndexType idx_v = vid_v_u32m1(vlen);
-//                auto         val_v = vmv_v_x(val, vlen);
-//
-//                for (grb::IndexType idx = 0; idx < w.size(); idx += vlen) {
-//                    vlen        = vsetvl_e32m1(w.size() - idx);
-//                    auto mask_v = check_mask_1D(mask, idx_v, vlen);
-//
-//                    // write
-//                    // TODO: add option to do unit-stride write
-//
-//                    // update idx_v for the next iteration by incrementing by the
-//                    // number of elements processed this iteration
-//                    idx_v = vadd_vx_u32m1(idx_v, vlen, vlen);
-//                }
-//            } else {
-//                // TODO
-//                assert(false);
-//            }
-//#endif
+#else
+            static_assert(std::is_same<AccumT, grb::NoAccumulate>::value,
+                "assign_constant (RVV implementation) only supports grb::NoAccumulate so far");
+            static_assert(std::is_same<SequenceT, grb::AllIndices>::value,
+                "assign_constant (RVV implementation) only supports grb::AllIndices so far");
+
+            // clear the entire output vector if grb::REPLACE
+            if (outp == grb::REPLACE) {
+                w.clear();
+            }
+
+            // write val to all masked elements of w
+            // unmasked elements are either already cleared (REPLACE) or
+            // untouched (MERGE)
+            size_t vlen  = vsetvl_e32m1(w.size());
+            auto   val_v = vmv_v_x(val, vlen);
+
+            for (grb::IndexType idx = 0; idx < w.size(); idx += vlen) {
+                vlen        = vsetvl_e32m1(w.size() - idx);
+                auto mask_v = check_mask_1D(mask, idx, vlen);
+                // update w
+                w.setElementNoCheck(idx, val_v, mask_v, vlen);
+            }
+#endif
         }
 
         //======================================================================

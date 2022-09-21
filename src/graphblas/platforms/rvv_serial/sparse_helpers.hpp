@@ -1396,6 +1396,15 @@ namespace grb
         {
             return check_mask_1D(mask, false, target_index_v, vlen);
         }
+
+        template <typename MScalarT>
+        inline vbool32_t check_mask_1D(
+            const BitmapSparseVector<MScalarT>& mask,
+            IndexType                           start_target_index,
+            size_t                              vlen)
+        {
+            return check_mask_1D(mask, false, start_target_index, vlen);
+        }
 #endif
 
         template <typename MaskT>
