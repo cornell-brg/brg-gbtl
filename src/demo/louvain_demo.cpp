@@ -39,6 +39,7 @@
 //****************************************************************************
 int main(int argc, char **argv)
 {
+#if 0
     if (argc < 2)
     {
         std::cerr << "ERROR: too few arguments." << std::endl;
@@ -83,6 +84,6 @@ int main(int argc, char **argv)
     auto cluster2_assignments =
         algorithms::get_louvain_cluster_assignments(cluster2_matrix);
     print_vector(std::cout, cluster2_assignments, "cluster (masked)  assignments");
-
+#endif
     return 0;
 }

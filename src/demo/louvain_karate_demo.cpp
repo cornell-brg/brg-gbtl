@@ -113,6 +113,7 @@ grb::IndexArrayType j = {
 //****************************************************************************
 int main(int argc, char **argv)
 {
+#if 0
     using MatType = grb::Matrix<double>;
     MatType A(NUM_NODES, NUM_NODES);
 
@@ -160,6 +161,6 @@ int main(int argc, char **argv)
             algorithms::get_louvain_cluster_assignments(cluster_matrix);
         print_vector(std::cout, cluster_assignments, "cluster (masked) assignments");
     }
-
+#endif
     return 0;
 }

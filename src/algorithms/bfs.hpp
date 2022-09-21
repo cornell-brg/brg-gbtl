@@ -469,7 +469,6 @@ namespace algorithms
         }
     }
 
-
     //************************************************************************
     /**
      * @brief Perform a single breadth first searches (BFS) on the given graph.
@@ -521,7 +520,11 @@ namespace algorithms
             grb::vxm(wavefront,
                      grb::complement(levels),
                      grb::NoAccumulate(),
+#ifndef ARCH_RVV
                      grb::LogicalSemiring<grb::IndexType>(),
+#else
+                     grb::LogicalSemiring_RVV<grb::IndexType>(),
+#endif
                      wavefront, graph,
                      grb::REPLACE);
         }

@@ -108,7 +108,7 @@ grb::IndexArrayType j = {
 
 
 //****************************************************************************
-using ScalarT = int32_t;
+using ScalarT = uint32_t;
 
 int main(int argc, char* argv[])
 {
@@ -194,8 +194,11 @@ int main(int argc, char* argv[])
 
     std::cout << "\n\nRunning bfs_level_masked_v2 ..." << std::endl;
     grb::Vector<grb::IndexType> levels1(nnodes);
+
+    // TODO select a root node that is actually connected
     grb::Vector<ScalarT> root(nnodes);
-    root.setElement(grb::IndexType(0), 1);
+    root.setElement(grb::IndexType(3), 1);
+
     algorithms::bfs_level_masked_v2(G_karate, root, levels1);
     std::cout << "levels:" << std::endl;
     grb::print_vector(std::cout, levels1);
