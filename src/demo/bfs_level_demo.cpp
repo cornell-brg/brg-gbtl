@@ -32,6 +32,7 @@
 
 #include <graphblas/graphblas.hpp>
 #include <algorithms/bfs.hpp>
+#include <graphblas/gem5_helpers.hpp>
 
 grb::IndexType const num_nodes = 34;
 grb::IndexArrayType i = {
@@ -212,11 +213,21 @@ int main(int argc, char* argv[])
     std::cout << "\n\nRunning bfs_level_masked_v2 ..." << std::endl;
     grb::Vector<grb::IndexType> levels1(nnodes);
 
-    // TODO select a root node that is actually connected
     grb::Vector<ScalarT> root(nnodes);
     root.setElement(root_node, 1);
 
+    /** Switch to detailed CPU */
+    gem5::switch_cpus(true);
+
+    /** Turn on vector engine */
+    gem5::vstart();
+
     algorithms::bfs_level_masked_v2(G_karate, root, levels1);
+
+    /** Turn off vector engine */
+    gem5::vend();
+
+    // print output
     std::cout << "levels:" << std::endl;
     grb::print_vector(std::cout, levels1);
 

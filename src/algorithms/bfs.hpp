@@ -31,6 +31,7 @@
 #include <tuple>
 
 #include <graphblas/graphblas.hpp>
+#include <graphblas/gem5_helpers.hpp>
 
 //****************************************************************************
 namespace algorithms
@@ -506,6 +507,9 @@ namespace algorithms
         grb::IndexType depth = 0;
         while (wavefront.nvals() > 0)
         {
+            /** start ROI */
+            gem5::toggle_stats(true);
+
             // Increment the level
             ++depth;
 
@@ -527,6 +531,9 @@ namespace algorithms
 #endif
                      wavefront, graph,
                      grb::REPLACE);
+
+            /** end ROI */
+            gem5::toggle_stats(false);
         }
     }
 }
