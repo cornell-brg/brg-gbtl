@@ -588,7 +588,7 @@ namespace grb
 
                 // update m_nvals
                 auto cur_mask = this->hasElementNoCheck(start_index, vlen);
-                auto cur_cnt  = vpopc_m_b32(cur_mask, vlen);
+                auto cur_cnt  = vcpop_m_b32(cur_mask, vlen);
                 m_nvals      += (vlen - cur_cnt);
 
                 // update m_vals
@@ -626,7 +626,7 @@ namespace grb
                 auto new_mask = vmand_mm_b32(vmnot_m_b32(cur_mask, vlen),
                                              mask_vec,
                                              vlen);
-                m_nvals      += vpopc_m_b32(new_mask, vlen);
+                m_nvals      += vcpop_m_b32(new_mask, vlen);
 
 
                 // update m_vals
@@ -662,7 +662,7 @@ namespace grb
 
                 // update m_nvals
                 auto cur_mask = this->hasElementNoCheck(index_vec, vlen);
-                auto cur_cnt  = vpopc_m_b32(cur_mask, vlen);
+                auto cur_cnt  = vcpop_m_b32(cur_mask, vlen);
                 m_nvals      += (vlen - cur_cnt);
 
                 // update m_vals
@@ -702,7 +702,7 @@ namespace grb
                 auto new_mask = vmand_mm_b32(vmnot_m_b32(cur_mask, vlen),
                                              mask_vec,
                                              vlen);
-                m_nvals      += vpopc_m_b32(new_mask, vlen);
+                m_nvals      += vcpop_m_b32(new_mask, vlen);
 
                 // update m_vals
                 vsxe_v_m(m_vals.data(),
@@ -766,7 +766,7 @@ namespace grb
                 // update m_nvals
                 auto cur_mask = this->hasElementNoCheck(index_vec, vlen);
                 auto and_mask = vmand_mm_b32(cur_mask, mask_vec, vlen);
-                m_nvals      -= vpopc_m_b32(and_mask, vlen);
+                m_nvals      -= vcpop_m_b32(and_mask, vlen);
 
                 // update bitmap
                 vsxe_v_m(m_bitmap.data(),
@@ -783,7 +783,7 @@ namespace grb
                 // update m_nvals
                 auto cur_mask = this->hasElementNoCheck(start_index, vlen);
                 auto and_mask = vmand_mm_b32(cur_mask, mask_vec, vlen);
-                m_nvals      -= vpopc_m_b32(and_mask, vlen);
+                m_nvals      -= vcpop_m_b32(and_mask, vlen);
 
                 // update bitmap
                 vse_v_m(m_bitmap.data() + start_index,

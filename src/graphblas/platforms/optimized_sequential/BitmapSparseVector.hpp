@@ -402,7 +402,7 @@ namespace grb
 
                 if (m_bitmap[index] == false)
                 {
-                    throw NoValueException();
+                    throw NoValueException("BitmapSparseVector: non-existing element");
                 }
 
                 return m_vals[index];

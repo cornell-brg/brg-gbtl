@@ -165,7 +165,10 @@ namespace grb
     {
     public:
         NoValueException(std::string const &msg)
-            : m_message(msg) {}
+            : m_message(msg)
+        {
+            GRB_LOG_VERBOSE("!!! NoValueException: " << msg);
+        }
 
         NoValueException() {}
 

@@ -190,6 +190,34 @@ namespace grb
                         values.begin(), values.size(), dup);
         }
 
+        /**
+         * Populate the matrix using input stored in CSR format
+         */
+        template<typename ValueT>
+        void build_from_csr(const IndexArrayType&      row_ptr_arr,
+                            const IndexArrayType&      col_idx_arr,
+                            const std::vector<ValueT>& mtx_dat_arr,
+                            bool                       is_transposed)
+        {
+            if (row_ptr_arr.size() < 1) {
+                throw DimensionException("Matrix::build");
+            }
+
+            if (col_idx_arr.size() != mtx_dat_arr.size()) {
+                throw DimensionException("Matrix::build");
+            }
+
+            IndexType nnodes = row_ptr_arr.size() - 1;
+            IndexType nedges = col_idx_arr.size();
+
+            m_mat.build_from_csr(row_ptr_arr.begin(),
+                                 col_idx_arr.begin(),
+                                 mtx_dat_arr.begin(),
+                                 nnodes,
+                                 nedges,
+                                 is_transposed);
+        }
+
         void clear() { m_mat.clear(); }
 
         IndexType nrows() const  { return m_mat.nrows(); }

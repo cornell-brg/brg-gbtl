@@ -59,7 +59,8 @@ namespace grb
                             IndexType num_cols)
                 : m_num_rows(num_rows),
                   m_num_cols(num_cols),
-                  m_nvals(0)
+                  m_nvals(0),
+                  m_is_transposed(false)
             {
             }
 
@@ -67,7 +68,8 @@ namespace grb
             CsrSparseMatrix(CsrSparseMatrix<ScalarT> const &rhs)
                 : m_num_rows(rhs.m_num_rows),
                   m_num_cols(rhs.m_num_cols),
-                  m_nvals(rhs.m_nvals)
+                  m_nvals(rhs.m_nvals),
+                  m_is_transposed(false)
             {
                 /** TODO */
                 throw grb::NotImplementedException(
@@ -77,7 +79,8 @@ namespace grb
             // Constructor - dense from dense matrix
             CsrSparseMatrix(std::vector<std::vector<ScalarT>> const &val)
                 : m_num_rows(val.size()),
-                  m_num_cols(val[0].size())
+                  m_num_cols(val[0].size()),
+                  m_is_transposed(false)
             {
                 /** TODO */
                 throw grb::NotImplementedException(
@@ -88,7 +91,8 @@ namespace grb
             CsrSparseMatrix(std::vector<std::vector<ScalarT>> const &val,
                             ScalarT zero)
                 : m_num_rows(val.size()),
-                  m_num_cols(val[0].size())
+                  m_num_cols(val[0].size()),
+                  m_is_transposed(false)
             {
                 /** TODO */
                 throw grb::NotImplementedException(
@@ -154,7 +158,7 @@ namespace grb
                 }
 
                 m_col_idx_arr.assign(j_it, j_it + n);
-                m_val_arr.assign(v_it, v_it + n);
+                m_mtx_dat_arr.assign(v_it, v_it + n);
 
                 m_row_ptr_arr.resize(m_num_rows + 1);
                 IndexType cur_row_ptr = 0;
@@ -181,8 +185,31 @@ namespace grb
                 }
 
                 // set number of non-zeros
-                m_nvals = m_val_arr.size();
+                m_nvals = m_mtx_dat_arr.size();
                 m_row_ptr_arr[m_num_rows] = m_nvals;
+            }
+
+            template<typename RowPtrIterator,
+                     typename ColIdxIterator,
+                     typename MtxDatIterator>
+            void build_from_csr(RowPtrIterator row_ptr_it,
+                                ColIdxIterator col_idx_it,
+                                MtxDatIterator mtx_dat_it,
+                                IndexType      nnodes,
+                                IndexType      nedges,
+                                bool           is_transposed)
+            {
+                if (nedges == 0) {
+                    // no non-zero value, just return
+                    return;
+                }
+
+                m_row_ptr_arr.assign(row_ptr_it, row_ptr_it + (nnodes + 1));
+                m_col_idx_arr.assign(col_idx_it, col_idx_it + nedges);
+                m_mtx_dat_arr.assign(mtx_dat_it, mtx_dat_it + nedges);
+
+                m_is_transposed = is_transposed;
+                m_nvals         = nedges;
             }
 
             void clear()
@@ -257,7 +284,7 @@ namespace grb
                 //    printf("%d %d", i, m_col_idx_arr[i]);
                 //    if (icol == m_col_idx_arr[i]) {
                 //        // found an existing element, just update it
-                //        m_val_arr[i] = val;
+                //        m_mtx_dat_arr[i] = val;
                 //        return;
                 //    } else if (icol < m_col_idx_arr[i]) {
                 //        // found a place to insert the new element
@@ -268,7 +295,7 @@ namespace grb
 
                 //// insert the value right before the i-th element
                 //m_col_idx_arr.insert(m_col_idx_arr.begin() + i, icol);
-                //m_val_arr.insert(m_val_arr.begin() + i, val);
+                //m_mtx_dat_arr.insert(m_mtx_dat_arr.begin() + i, val);
                 //m_nvals++;
 
                 //// shift row_ptr after irow by 1
@@ -370,7 +397,7 @@ namespace grb
                     throw IndexOutOfBoundsException("getNvals: index out of bounds");
                 }
 
-                return m_val_arr.data() + m_row_ptr_arr[row_idx];
+                return m_mtx_dat_arr.data() + m_row_ptr_arr[row_idx];
             }
 
             // Allow casting
@@ -484,7 +511,7 @@ namespace grb
                     os << std::endl;
 
                     os << "values : ";
-                    for (auto v : m_val_arr) {
+                    for (auto v : m_mtx_dat_arr) {
                         os << v << " ";
                     }
                     os << std::endl;
@@ -506,7 +533,7 @@ namespace grb
                             {
                                 // non-zero element
                                 os << ((col_idx > 0) ? ", " : " ");
-                                os << m_val_arr[val_idx];
+                                os << m_mtx_dat_arr[val_idx];
                                 min_col_idx++;
                             } else {
                                 // zero element
@@ -537,7 +564,9 @@ namespace grb
 
             IndexArrayType  m_col_idx_arr;
             IndexArrayType  m_row_ptr_arr;
-            ScalarArrayType m_val_arr;
+            ScalarArrayType m_mtx_dat_arr;
+
+            bool            m_is_transposed;
         };
 
     } // namespace backend

@@ -39,6 +39,19 @@ namespace grb
 {
     //************************************************************************
     /**
+     * build matrix from list of source, destination nodes and weights
+     */
+    template<typename MatrixT, typename ScalarT>
+    void build(MatrixT& m,
+               const IndexArrayType& src_arr,
+               const IndexArrayType& dst_arr,
+               const std::vector<ScalarT> weights)
+    {
+
+    }
+
+    //************************************************************************
+    /**
      * @brief Constuct and return a matrix with elements on the diagonal.
      *
      * @param[in] v    The elements to put on the diagonal of a matrix.

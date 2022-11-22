@@ -151,7 +151,7 @@ inline void vse_v_m(ScalarT* addr, const VectorT& val_vec, const vbool32_t& mask
 }
 
 template<typename ScalarT, typename VectorT>
-inline void vsxe_v(const ScalarT* addr, const vuint32m1_t& index_vec,
+inline void vsxe_v(ScalarT* addr, const vuint32m1_t& index_vec,
                    const VectorT& val_vec, size_t vlen)
 {
     auto index_vec_byte = vmul_vx_u32m1(index_vec, sizeof(uint32_t), vlen);

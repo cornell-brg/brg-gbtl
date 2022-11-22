@@ -127,10 +127,10 @@ int main(int argc, char* argv[])
 
   // TODO Assignment from Initalizer list.
   grb::Matrix<ScalarT> G_karate(nnodes, nnodes);
-
   G_karate.build(src_arr.begin(), dst_arr.begin(), weights.begin(), src_arr.size());
-  std::cout << "Graph: " << std::endl;
-  grb::print_matrix(std::cout, G_karate);
+
+  // print the matrix
+  //grb::print_matrix(std::cout, G_karate);
 
   grb::Vector<ScalarT> root(nnodes);
   root.setElement(root_node, 1);
@@ -139,14 +139,19 @@ int main(int argc, char* argv[])
   // do BFS-level (masked)
   algorithms::bfs_level_masked(G_karate, root, levels);
 
-  std::cout << "levels:" << std::endl;
-  grb::print_vector(std::cout, levels);
-
   // dump the output to a file
+  //std::cout << "levels:" << std::endl;
+  //grb::print_vector(std::cout, levels);
+
   std::ofstream out(argv[3], std::ios::out | std::ios::binary);
+  uint_tmp = nnodes;
   out.write((char *) &uint_tmp, sizeof(uint_tmp));
   for (auto i = 0; i < nnodes; ++i) {
-    uint_tmp = levels.extractElement(i);
+    try {
+      uint_tmp = levels.extractElement(i);
+    } catch (...) {
+      uint_tmp = 0;
+    }
     out.write((char *) &uint_tmp, sizeof(uint_tmp));
   }
 

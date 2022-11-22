@@ -25,6 +25,12 @@
  * DM20-0442
  */
 
+//=========================================================================
+// bfs_level_demo.cpp
+//=========================================================================
+// Doing BFS-level
+// Input graphs are expected in CSR or transposed CSR format
+
 #include <iostream>
 #include <filesystem>
 #include <fstream>
@@ -34,234 +40,152 @@
 #include <algorithms/bfs.hpp>
 #include <graphblas/gem5_helpers.hpp>
 
-grb::IndexType const num_nodes = 34;
-grb::IndexArrayType i = {
-    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-    1,1,1,1,1,1,1,1,1,
-    2,2,2,2,2,2,2,2,2,2,
-    3,3,3,3,3,3,
-    4,4,4,
-    5,5,5,5,
-    6,6,6,6,
-    7,7,7,7,
-    8,8,8,8,8,
-    9,9,
-    10,10,10,
-    11,
-    12,12,
-    13,13,13,13,13,
-    14,14,
-    15,15,
-    16,16,
-    17,17,
-    18,18,
-    19,19,19,
-    20,20,
-    21,21,
-    22,22,
-    23,23,23,23,23,
-    24,24,24,
-    25,25,25,
-    26,26,
-    27,27,27,27,
-    28,28,28,
-    29,29,29,29,
-    30,30,30,30,
-    31,31,31,31,31,31,
-    32,32,32,32,32,32,32,32,32,32,32,32,
-    33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33,33};
-
-grb::IndexArrayType j = {
-    1,2,3,4,5,6,7,8,10,11,12,13,19,21,23,31,
-    0,2,3,7,13,17,19,21,30,
-    0,1,3,7,8,9,13,27,28,32,
-    0,1,2,7,12,13,
-    0,6,10,
-    0,6,10,16,
-    0,4,5,16,
-    0,1,2,3,
-    0,2,30,32,33,
-    2,33,
-    0,4,5,
-    0,
-    0,3,
-    0,1,2,3,33,
-    32,33,
-    32,33,
-    5,6,
-    0,1,
-    32,33,
-    0,1,33,
-    32,33,
-    0,1,
-    32,33,
-    25,27,29,32,33,
-    25,27,31,
-    23,24,31,
-    29,33,
-    2,23,24,33,
-    2,31,33,
-    23,26,32,33,
-    1,8,32,33,
-    0,24,25,28,32,33,
-    2,8,14,15,18,20,22,23,29,30,31,33,
-    8,9,13,14,15,18,19,20,22,23,26,27,28,29,30,31,32};
-
-
-//****************************************************************************
 using ScalarT = uint32_t;
 
 int main(int argc, char* argv[])
 {
-    grb::IndexType       nnodes;
-    grb::IndexType       nedges;
-    grb::IndexType       data_type = 0;
-    grb::IndexArrayType  src_arr;
-    grb::IndexArrayType  dst_arr;
-    std::vector<ScalarT> weights;
-    grb::IndexType       root_node = 0;
+  if (argc != 4) {
+    std::cerr << "Wrong command line arguments <inp_graph> <root_node> <ref_graph>" << std::endl;
+    return 1;
+  }
 
-    // read mtx from an input file
-    if (argc == 3) {
-        if (std::filesystem::path(argv[1]).extension().string() != std::string(".list")) {
-            std::cerr << "Unsupported file format" << std::endl;
-            return 1;
-        }
+  bool is_transposed_csr = false;
+  if (std::filesystem::path(argv[1]).extension().string() != std::string(".csr")) {
+    is_transposed_csr = false;
+  } else if (std::filesystem::path(argv[1]).extension().string() != std::string(".tcsr")) {
+    is_transposed_csr = true;
+  } else {
+    std::cerr << "Unsupported file format: " << argv[1] << std::endl;
+    return 1;
+  }
 
-        try {
-            root_node = std::stoi(std::string(argv[2]));
-        } catch (...) {
-            std::cerr << "Invalid command line arguments" << std::endl;
-        }
+  grb::IndexType nnodes;
+  grb::IndexType nedges;
+  grb::IndexType data_type;
+  grb::IndexType root_node = 0;
 
-        std::cout << "Reading input graph from an input file " << argv[1] << std::endl;
+  // process root node
+  try {
+    root_node = std::stoi(std::string(argv[2]));
+  } catch (...) {
+    std::cerr << "Invalid root node: " << argv[2] << std::endl;
+  }
 
-        std::string fname(argv[1]);
-        std::ifstream in;
-        in.open(fname, std::ios::in | std::ios::binary);
+  // process input graph's info
+  std::string fname(argv[1]);
+  std::ifstream in_file;
+  in_file.open(fname, std::ios::in | std::ios::binary);
 
-        // check open file for write
-        if (!in.is_open()) {
-            std::cerr << "Error in open file " << fname << std::endl;
-            return 1;
-        }
+  if (!in_file.is_open()) {
+    std::cerr << "Error in opening file " << fname << std::endl;
+    return 1;
+  }
 
-        uint32_t uint_tmp;
+  // read nnodes, nedges, data type
+  grb::IndexType uint_tmp;
+  in_file.read((char*) &uint_tmp, sizeof(grb::IndexType));
+  assert(in_file);
+  nnodes = static_cast<grb::IndexType>(uint_tmp);
+  std::cout << "nnodes = " << nnodes << std::endl;
 
-        in.read((char*) &uint_tmp, sizeof(uint_tmp));
-        assert(in);
-        nnodes = static_cast<grb::IndexType>(uint_tmp);
-        std::cout << "nnodes = " << nnodes << std::endl;
+  in_file.read((char*) &uint_tmp, sizeof(grb::IndexType));
+  assert(in_file);
+  nedges = static_cast<grb::IndexType>(uint_tmp);
+  std::cout << "nedges = " << nedges << std::endl;
 
-        in.read((char*) &uint_tmp, sizeof(uint_tmp));
-        assert(in);
-        nedges = static_cast<grb::IndexType>(uint_tmp);
-        std::cout << "nedges = " << nedges << std::endl;
+  in_file.read((char*) &uint_tmp, sizeof(grb::IndexType));
+  assert(in_file);
+  data_type = static_cast<grb::IndexType>(uint_tmp);
+  std::cout << "data_type = " << data_type
+            << " (0-binary, 1-integer, 2-float)" << std::endl;
 
-        in.read((char*) &uint_tmp, sizeof(uint_tmp));
-        assert(in);
-        data_type = static_cast<grb::IndexType>(uint_tmp);
-        std::cout << "data_type = " << data_type
-                  << " (0-binary, 1-integer, 2-float)" << std::endl;
+  if (root_node >= nnodes) {
+      std::cerr << "Invalid root node: " << root_node << std::endl;
+      return 1;
+  }
 
-        if (root_node >= nnodes) {
-            std::cerr << "Invalid root node: " << root_node << std::endl;
-            return 1;
-        }
+  std::cout << "root_node = " << root_node << std::endl;
 
-        std::cout << "root_node = " << root_node << std::endl;
+  // read row_ptr
+  grb::IndexArrayType row_ptr_arr(nnodes + 1);
+  for (grb::IndexType i = 0; i < nnodes + 1; ++i) {
+    in_file.read((char*) &uint_tmp, sizeof(grb::IndexType));
+    assert(in_file);
+    row_ptr_arr[i] = static_cast<grb::IndexType>(uint_tmp);
+  }
 
-        // src arr
-        src_arr.resize(nedges);
-        for (size_t i = 0; i < nedges; ++i) {
-	          in.read((char*) &uint_tmp, sizeof(uint_tmp));
-            assert(in);
-            src_arr[i] = static_cast<grb::IndexType>(uint_tmp);
-        }
+  // read col_idx
+  grb::IndexArrayType col_idx_arr(nedges);
+  for (grb::IndexType i = 0; i < nedges; ++i) {
+    in_file.read((char*) &uint_tmp, sizeof(grb::IndexType));
+    assert(in_file);
+    col_idx_arr[i] = static_cast<grb::IndexType>(uint_tmp);
+  }
 
-        // dst arr
-        dst_arr.resize(nedges);
-        for (size_t i = 0; i < nedges; ++i) {
-	          in.read((char*) &uint_tmp, sizeof(uint_tmp));
-            assert(in);
-            dst_arr[i] = static_cast<grb::IndexType>(uint_tmp);
-        }
+  // read mtx_dat
+  // for now, just all 1s
+  grb::IndexArrayType mtx_dat_arr(nedges, 1);
 
-        // close
-        in.close();
-    } else if (argc == 1) {
-        std::cout << "Using the default matrix" << std::endl;
-        nnodes  = num_nodes;
-        src_arr = i;
-        dst_arr = j;
-        nedges  = src_arr.size();
-    } else {
-        std::cerr << "Wrong command line arguments" << std::endl;
-        return 1;
+  // close the file
+  in_file.close();
+
+  // create a matrix
+  grb::Matrix<ScalarT> G_karate(nnodes, nnodes);
+  G_karate.build_from_csr(row_ptr_arr, col_idx_arr, mtx_dat_arr, is_transposed_csr);
+
+  // print the matrix
+  //grb::print_matrix(std::cout, G_karate);
+
+  grb::Vector<grb::IndexType> levels(nnodes);
+  grb::Vector<ScalarT> root(nnodes);
+  root.setElement(root_node, 1);
+
+  ///** Switch to detailed CPU */
+  //gem5::switch_cpus(true);
+
+  ///** Turn on vector engine */
+  //gem5::vstart();
+
+  algorithms::bfs_level_masked_v2(G_karate, root, levels);
+
+  ///** Turn off vector engine */
+  //gem5::vend();
+
+  // check the output
+  //std::cout << "levels:" << std::endl;
+  //grb::print_vector(std::cout, levels);
+  std::ifstream ref_file;
+  ref_file.open(argv[3]);
+
+  if (!ref_file.is_open()) {
+    std::cerr << "Error in opening file " << argv[3] << std::endl;
+    return 1;
+  }
+
+  ref_file.read((char*) &uint_tmp, sizeof(grb::IndexType));
+  assert(ref_file);
+  auto ref_nnodes = static_cast<grb::IndexType>(uint_tmp);
+  if (ref_nnodes != nnodes) {
+    std::cerr << "[FAILED] nnodes != ref_nnodes: " << nnodes << " != " << ref_nnodes << std::endl;
+    return 1;
+  }
+
+  for (auto i = 0; i < nnodes; ++i) {
+    ref_file.read((char*) &uint_tmp, sizeof(uint_tmp));
+    assert(ref_file);
+    ScalarT ref_val = static_cast<ScalarT>(uint_tmp);
+    ScalarT val;
+    try {
+      val = levels.extractElement(i);
+    } catch (...) {
+      val = 0;
     }
+    if (ref_val != val) {
+      std::cerr << "[FAILED] i = " << i << ", ref_val != val: " << ref_val << " != " << val << std::endl;
+      return 1;
+    }
+  }
 
-    // set weights to 1s for this BFS_level since actual weights don't matter here
-    weights.resize(nedges, 1);
-
-    // TODO Assignment from Initalizer list.
-    grb::Matrix<ScalarT> G_karate(nnodes, nnodes);
-
-    G_karate.build(src_arr.begin(), dst_arr.begin(), weights.begin(), src_arr.size());
-    std::cout << "Graph: " << std::endl;
-    //grb::print_matrix(std::cout, G_karate);
-
-    std::cout << "\n\nRunning bfs_level_masked_v2 ..." << std::endl;
-    grb::Vector<grb::IndexType> levels1(nnodes);
-
-    grb::Vector<ScalarT> root(nnodes);
-    root.setElement(root_node, 1);
-
-    /** Switch to detailed CPU */
-    gem5::switch_cpus(true);
-
-    /** Turn on vector engine */
-    gem5::vstart();
-
-    algorithms::bfs_level_masked_v2(G_karate, root, levels1);
-
-    /** Turn off vector engine */
-    gem5::vend();
-
-    // print output
-    std::cout << "levels:" << std::endl;
-    grb::print_vector(std::cout, levels1);
-
-    //std::cout << "\n\nRunning bfs_level (using mxv) ..." << std::endl;
-    //grb::Vector<grb::IndexType> levels(nnodes);
-    //algorithms::bfs_level(G_karate, grb::IndexType(0), levels);
-    //std::cout << "levels:" << std::endl;
-    //grb::print_vector(std::cout, levels);
-
-//    // Trying the row vector approach
-//    grb::Matrix<ScalarT>  root(1, nnodes);
-//    // pick an arbitrary root:
-//    root.setElement(0, 0, 1);
-//
-//    grb::Matrix<ScalarT> levels1(1, nnodes);
-//
-//    algorithms::bfs_level(G_karate, root, levels1);
-//
-//    std::cout << "bfs_level output" << std::endl;
-//    std::cout << "root:" << std::endl;
-//    grb::print_matrix(std::cout, root);
-//    std::cout << "levels (using mxm):" << std::endl;
-//    grb::print_matrix(std::cout, levels1);
-
-//    grb::Matrix<ScalarT> levels(1, nnodes);
-//    algorithms::batch_bfs_level_masked(G_karate, root, levels);
-//
-//    std::cout << "Graph: " << std::endl;
-//    grb::print_matrix(std::cout, G_karate);
-//    std::cout << std::endl;
-//    std::cout << "root:" << std::endl;
-//    grb::print_matrix(std::cout, root);
-//    std::cout << "levels:" << std::endl;
-//    grb::print_matrix(std::cout, levels);
-
-    return 0;
+  std::cout << "[passed]" << std::endl;
+  return 0;
 }

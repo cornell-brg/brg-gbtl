@@ -87,19 +87,6 @@ namespace grb
                     if (u.hasElementNoCheck(row_idx) && row_nvals != 0) {
                         // @Tuan: doing an axpy(u[row_idx], A[row_idx]) -> t
                         auto a = u.extractElementNoCheck(row_idx);
-#ifndef ARCH_RVV
-                        for (IndexType i = 0; i < row_nvals; ++i)
-                        {
-                            auto j   = col_idx_arr[i];
-                            auto b_j = val_arr[i];
-                            auto t_j = op.mult(a, b_j);
-
-                            if (t.hasElementNoCheck(j))
-                                t.setElementNoCheck(j, op.add(t.extractElementNoCheck(j), t_j));
-                            else
-                                t.setElementNoCheck(j, t_j);
-                        }
-#else
                         size_t vlen = 0;
                         for (IndexType i = 0; i < row_nvals; i += vlen) {
                             vlen = vsetvl_e32m1(row_nvals - i);
@@ -114,7 +101,6 @@ namespace grb
                             // update t
                             t.setElementNoCheck(j_vec, t_j_vec, vlen);
                         }
-#endif
                     }
                 }
             }
