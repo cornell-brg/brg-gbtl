@@ -70,7 +70,7 @@ endif()
 
 # use clang++
 if (NOT (${CMAKE_CXX_COMPILER_ID} MATCHES "Clang"))
-    message(FATAL_ERROR "CXX compiler must be clang")
+    message(FATAL_ERROR "CXX compiler must be clang: ${CMAKE_CXX_COMPILER_ID}")
 endif()
 
 # target RVV back-end
